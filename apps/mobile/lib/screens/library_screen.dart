@@ -5,6 +5,7 @@ import 'package:core/core.dart' as core;
 
 import '../main.dart';
 import 'card_form_screen.dart';
+import 'generate_cards_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -55,14 +56,32 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CardFormScreen()),
-          );
-          _loadCards();
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'generate',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const GenerateCardsScreen()),
+              );
+              _loadCards();
+            },
+            child: const Icon(Icons.auto_awesome),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            heroTag: 'add',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CardFormScreen()),
+              );
+              _loadCards();
+            },
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }

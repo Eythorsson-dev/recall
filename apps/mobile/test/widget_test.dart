@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:core/core.dart';
+import 'package:core/core.dart' as core;
 import 'package:drift/native.dart';
 
 import 'package:recall_mobile/main.dart';
@@ -9,6 +10,7 @@ void main() {
   setUp(() {
     database = RecallDatabase(NativeDatabase.memory());
     cardRepository = CardRepository(database);
+    cardGenerationService = core.StubCardGenerationService();
   });
 
   tearDown(() async {

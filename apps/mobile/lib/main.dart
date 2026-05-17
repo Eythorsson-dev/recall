@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core/core.dart';
+import 'package:core/core.dart' as core;
 import 'package:drift/native.dart';
 
 import 'screens/home_screen.dart';
@@ -8,11 +9,13 @@ import 'screens/settings_screen.dart';
 
 late RecallDatabase database;
 late CardRepository cardRepository;
+late CardGenerationService cardGenerationService;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   database = RecallDatabase(NativeDatabase.memory());
   cardRepository = CardRepository(database);
+  cardGenerationService = core.StubCardGenerationService();
   runApp(const RecallApp());
 }
 
