@@ -58,9 +58,12 @@ void main() {
     await tester.tap(find.text('Start Study Session'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Study Direction'), findsOneWidget);
+    expect(find.text('Study Session'), findsOneWidget);
     expect(find.text('Source → Target'), findsOneWidget);
     expect(find.text('Target → Source'), findsOneWidget);
     expect(find.text('Both'), findsOneWidget);
+    expect(find.text('Reading'), findsOneWidget);
+    expect(find.text('Listening with Text'), findsOneWidget);
+    expect(find.text('Listening without Text'), findsOneWidget);
   });
 }
