@@ -12,6 +12,7 @@ late CardRepository cardRepository;
 late CardGenerationService cardGenerationService;
 late SavedFilterEngine savedFilterEngine;
 late ProgressTracker progressTracker;
+late TranslationService translationService;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,7 @@ void main() {
   cardGenerationService = core.StubCardGenerationService();
   savedFilterEngine = core.SavedFilterEngine(database);
   progressTracker = core.ProgressTracker(database);
+  translationService = core.StubTranslationService();
   runApp(const RecallApp());
 }
 

@@ -13,6 +13,7 @@ void main() {
     cardGenerationService = core.StubCardGenerationService();
     savedFilterEngine = core.SavedFilterEngine(database);
     progressTracker = core.ProgressTracker(database);
+    translationService = core.StubTranslationService();
   });
 
   tearDown(() async {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -23,6 +24,9 @@ class _CardFormScreenState extends State<CardFormScreen> {
   bool _sourceSpeakable = true;
   bool _targetSpeakable = false;
   bool _isEditing = false;
+  bool _targetUserModified = false;
+  bool _targetAutoPopulated = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -30,6 +34,38 @@ class _CardFormScreenState extends State<CardFormScreen> {
     if (widget.cardId != null) {
       _isEditing = true;
       _loadCard();
+    }
+    _sourceValueController.addListener(_onSourceChanged);
+  }
+
+  void _onSourceChanged() {
+    _debounceTimer?.cancel();
+    if (_sourceValueController.text.isEmpty) return;
+    if (_sourceFieldNameController.text.isEmpty) return;
+    if (_targetFieldNameController.text.isEmpty) return;
+
+    if (_targetUserModified && _targetValueController.text.isNotEmpty) {
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), _autoTranslate);
+  }
+
+  Future<void> _autoTranslate() async {
+    final source = _sourceValueController.text;
+    if (source.isEmpty) return;
+
+    final translated = await translationService.translate(
+      text: source,
+      sourceLanguage: _sourceFieldNameController.text,
+      targetLanguage: _targetFieldNameController.text,
+    );
+
+    if (mounted && !_targetUserModified) {
+      setState(() {
+        _targetValueController.text = translated;
+        _targetAutoPopulated = true;
+      });
     }
   }
 
@@ -55,11 +91,14 @@ class _CardFormScreenState extends State<CardFormScreen> {
         _targetValueController.text = fields[keys[1]]!;
         _targetSpeakable = speakable[keys[1]] ?? false;
       }
+      _targetUserModified = true;
     });
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _sourceValueController.removeListener(_onSourceChanged);
     _languageController.dispose();
     _sourceFieldNameController.dispose();
     _sourceValueController.dispose();
@@ -131,13 +170,63 @@ class _CardFormScreenState extends State<CardFormScreen> {
             ),
             TextFormField(
               controller: _targetValueController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Target value',
                 hintText: 'e.g. hello',
+                suffixIcon: _targetAutoPopulated && !_targetUserModified
+                    ? Container(
+                        margin: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'AI',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
+                          ),
+                        ),
+                      )
+                    : null,
               ),
+              style: _targetAutoPopulated && !_targetUserModified
+                  ? TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
+                    )
+                  : null,
+              onChanged: (v) {
+                if (!_targetUserModified && _targetAutoPopulated) {
+                  setState(() => _targetUserModified = true);
+                }
+              },
               validator: (v) =>
                   v == null || v.isEmpty ? 'Value is required' : null,
             ),
+            if (_targetUserModified && _targetAutoPopulated)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _targetUserModified = false);
+                        _autoTranslate();
+                      },
+                      child: const Text('Regenerate'),
+                    ),
+                  ],
+                ),
+              ),
             SwitchListTile(
               title: const Text('Speakable'),
               value: _targetSpeakable,
