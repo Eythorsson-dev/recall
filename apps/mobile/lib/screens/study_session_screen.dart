@@ -10,8 +10,13 @@ import 'home_screen.dart';
 
 class StudySessionScreen extends StatefulWidget {
   final StudySessionConfig config;
+  final Set<int>? filterCardIds;
 
-  const StudySessionScreen({super.key, required this.config});
+  const StudySessionScreen({
+    super.key,
+    required this.config,
+    this.filterCardIds,
+  });
 
   @override
   State<StudySessionScreen> createState() => _StudySessionScreenState();
@@ -45,7 +50,12 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   }
 
   Future<void> _loadCards() async {
-    final cards = await cardRepository.getCardsDueToday();
+    var cards = await cardRepository.getCardsDueToday();
+    if (widget.filterCardIds != null) {
+      cards = cards
+          .where((c) => widget.filterCardIds!.contains(c.card.id))
+          .toList();
+    }
     setState(() {
       _queue = cards;
       _loading = false;

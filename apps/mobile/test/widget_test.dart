@@ -11,6 +11,7 @@ void main() {
     database = RecallDatabase(NativeDatabase.memory());
     cardRepository = CardRepository(database);
     cardGenerationService = core.StubCardGenerationService();
+    savedFilterEngine = core.SavedFilterEngine(database);
   });
 
   tearDown(() async {

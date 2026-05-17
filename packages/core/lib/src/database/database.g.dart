@@ -1506,12 +1506,413 @@ class ReviewEventsCompanion extends UpdateCompanion<ReviewEvent> {
   }
 }
 
+class $SavedFiltersTable extends SavedFilters
+    with TableInfo<$SavedFiltersTable, SavedFilter> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SavedFiltersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _languageMeta = const VerificationMeta(
+    'language',
+  );
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+    'language',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tagQueryMeta = const VerificationMeta(
+    'tagQuery',
+  );
+  @override
+  late final GeneratedColumn<String> tagQuery = GeneratedColumn<String>(
+    'tag_query',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _logicOperatorMeta = const VerificationMeta(
+    'logicOperator',
+  );
+  @override
+  late final GeneratedColumn<String> logicOperator = GeneratedColumn<String>(
+    'logic_operator',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('and'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    language,
+    tagQuery,
+    logicOperator,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'saved_filters';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SavedFilter> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('language')) {
+      context.handle(
+        _languageMeta,
+        language.isAcceptableOrUnknown(data['language']!, _languageMeta),
+      );
+    }
+    if (data.containsKey('tag_query')) {
+      context.handle(
+        _tagQueryMeta,
+        tagQuery.isAcceptableOrUnknown(data['tag_query']!, _tagQueryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tagQueryMeta);
+    }
+    if (data.containsKey('logic_operator')) {
+      context.handle(
+        _logicOperatorMeta,
+        logicOperator.isAcceptableOrUnknown(
+          data['logic_operator']!,
+          _logicOperatorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SavedFilter map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SavedFilter(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      language: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language'],
+      ),
+      tagQuery: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tag_query'],
+      )!,
+      logicOperator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logic_operator'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SavedFiltersTable createAlias(String alias) {
+    return $SavedFiltersTable(attachedDatabase, alias);
+  }
+}
+
+class SavedFilter extends DataClass implements Insertable<SavedFilter> {
+  final int id;
+  final String name;
+  final String? language;
+  final String tagQuery;
+  final String logicOperator;
+  final DateTime createdAt;
+  const SavedFilter({
+    required this.id,
+    required this.name,
+    this.language,
+    required this.tagQuery,
+    required this.logicOperator,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || language != null) {
+      map['language'] = Variable<String>(language);
+    }
+    map['tag_query'] = Variable<String>(tagQuery);
+    map['logic_operator'] = Variable<String>(logicOperator);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SavedFiltersCompanion toCompanion(bool nullToAbsent) {
+    return SavedFiltersCompanion(
+      id: Value(id),
+      name: Value(name),
+      language: language == null && nullToAbsent
+          ? const Value.absent()
+          : Value(language),
+      tagQuery: Value(tagQuery),
+      logicOperator: Value(logicOperator),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SavedFilter.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SavedFilter(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      language: serializer.fromJson<String?>(json['language']),
+      tagQuery: serializer.fromJson<String>(json['tagQuery']),
+      logicOperator: serializer.fromJson<String>(json['logicOperator']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'language': serializer.toJson<String?>(language),
+      'tagQuery': serializer.toJson<String>(tagQuery),
+      'logicOperator': serializer.toJson<String>(logicOperator),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SavedFilter copyWith({
+    int? id,
+    String? name,
+    Value<String?> language = const Value.absent(),
+    String? tagQuery,
+    String? logicOperator,
+    DateTime? createdAt,
+  }) => SavedFilter(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    language: language.present ? language.value : this.language,
+    tagQuery: tagQuery ?? this.tagQuery,
+    logicOperator: logicOperator ?? this.logicOperator,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SavedFilter copyWithCompanion(SavedFiltersCompanion data) {
+    return SavedFilter(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      language: data.language.present ? data.language.value : this.language,
+      tagQuery: data.tagQuery.present ? data.tagQuery.value : this.tagQuery,
+      logicOperator: data.logicOperator.present
+          ? data.logicOperator.value
+          : this.logicOperator,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SavedFilter(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('language: $language, ')
+          ..write('tagQuery: $tagQuery, ')
+          ..write('logicOperator: $logicOperator, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, language, tagQuery, logicOperator, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SavedFilter &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.language == this.language &&
+          other.tagQuery == this.tagQuery &&
+          other.logicOperator == this.logicOperator &&
+          other.createdAt == this.createdAt);
+}
+
+class SavedFiltersCompanion extends UpdateCompanion<SavedFilter> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String?> language;
+  final Value<String> tagQuery;
+  final Value<String> logicOperator;
+  final Value<DateTime> createdAt;
+  const SavedFiltersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.language = const Value.absent(),
+    this.tagQuery = const Value.absent(),
+    this.logicOperator = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  SavedFiltersCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.language = const Value.absent(),
+    required String tagQuery,
+    this.logicOperator = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : name = Value(name),
+       tagQuery = Value(tagQuery);
+  static Insertable<SavedFilter> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? language,
+    Expression<String>? tagQuery,
+    Expression<String>? logicOperator,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (language != null) 'language': language,
+      if (tagQuery != null) 'tag_query': tagQuery,
+      if (logicOperator != null) 'logic_operator': logicOperator,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  SavedFiltersCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String?>? language,
+    Value<String>? tagQuery,
+    Value<String>? logicOperator,
+    Value<DateTime>? createdAt,
+  }) {
+    return SavedFiltersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      language: language ?? this.language,
+      tagQuery: tagQuery ?? this.tagQuery,
+      logicOperator: logicOperator ?? this.logicOperator,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (tagQuery.present) {
+      map['tag_query'] = Variable<String>(tagQuery.value);
+    }
+    if (logicOperator.present) {
+      map['logic_operator'] = Variable<String>(logicOperator.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SavedFiltersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('language: $language, ')
+          ..write('tagQuery: $tagQuery, ')
+          ..write('logicOperator: $logicOperator, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RecallDatabase extends GeneratedDatabase {
   _$RecallDatabase(QueryExecutor e) : super(e);
   $RecallDatabaseManager get managers => $RecallDatabaseManager(this);
   late final $CardsTable cards = $CardsTable(this);
   late final $FsrsStatesTable fsrsStates = $FsrsStatesTable(this);
   late final $ReviewEventsTable reviewEvents = $ReviewEventsTable(this);
+  late final $SavedFiltersTable savedFilters = $SavedFiltersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1520,6 +1921,7 @@ abstract class _$RecallDatabase extends GeneratedDatabase {
     cards,
     fsrsStates,
     reviewEvents,
+    savedFilters,
   ];
 }
 
@@ -2714,6 +3116,221 @@ typedef $$ReviewEventsTableProcessedTableManager =
       ReviewEvent,
       PrefetchHooks Function({bool cardId})
     >;
+typedef $$SavedFiltersTableCreateCompanionBuilder =
+    SavedFiltersCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<String?> language,
+      required String tagQuery,
+      Value<String> logicOperator,
+      Value<DateTime> createdAt,
+    });
+typedef $$SavedFiltersTableUpdateCompanionBuilder =
+    SavedFiltersCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String?> language,
+      Value<String> tagQuery,
+      Value<String> logicOperator,
+      Value<DateTime> createdAt,
+    });
+
+class $$SavedFiltersTableFilterComposer
+    extends Composer<_$RecallDatabase, $SavedFiltersTable> {
+  $$SavedFiltersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tagQuery => $composableBuilder(
+    column: $table.tagQuery,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logicOperator => $composableBuilder(
+    column: $table.logicOperator,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SavedFiltersTableOrderingComposer
+    extends Composer<_$RecallDatabase, $SavedFiltersTable> {
+  $$SavedFiltersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tagQuery => $composableBuilder(
+    column: $table.tagQuery,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logicOperator => $composableBuilder(
+    column: $table.logicOperator,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SavedFiltersTableAnnotationComposer
+    extends Composer<_$RecallDatabase, $SavedFiltersTable> {
+  $$SavedFiltersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<String> get tagQuery =>
+      $composableBuilder(column: $table.tagQuery, builder: (column) => column);
+
+  GeneratedColumn<String> get logicOperator => $composableBuilder(
+    column: $table.logicOperator,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SavedFiltersTableTableManager
+    extends
+        RootTableManager<
+          _$RecallDatabase,
+          $SavedFiltersTable,
+          SavedFilter,
+          $$SavedFiltersTableFilterComposer,
+          $$SavedFiltersTableOrderingComposer,
+          $$SavedFiltersTableAnnotationComposer,
+          $$SavedFiltersTableCreateCompanionBuilder,
+          $$SavedFiltersTableUpdateCompanionBuilder,
+          (
+            SavedFilter,
+            BaseReferences<_$RecallDatabase, $SavedFiltersTable, SavedFilter>,
+          ),
+          SavedFilter,
+          PrefetchHooks Function()
+        > {
+  $$SavedFiltersTableTableManager(_$RecallDatabase db, $SavedFiltersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SavedFiltersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SavedFiltersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SavedFiltersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<String> tagQuery = const Value.absent(),
+                Value<String> logicOperator = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SavedFiltersCompanion(
+                id: id,
+                name: name,
+                language: language,
+                tagQuery: tagQuery,
+                logicOperator: logicOperator,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<String?> language = const Value.absent(),
+                required String tagQuery,
+                Value<String> logicOperator = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SavedFiltersCompanion.insert(
+                id: id,
+                name: name,
+                language: language,
+                tagQuery: tagQuery,
+                logicOperator: logicOperator,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SavedFiltersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecallDatabase,
+      $SavedFiltersTable,
+      SavedFilter,
+      $$SavedFiltersTableFilterComposer,
+      $$SavedFiltersTableOrderingComposer,
+      $$SavedFiltersTableAnnotationComposer,
+      $$SavedFiltersTableCreateCompanionBuilder,
+      $$SavedFiltersTableUpdateCompanionBuilder,
+      (
+        SavedFilter,
+        BaseReferences<_$RecallDatabase, $SavedFiltersTable, SavedFilter>,
+      ),
+      SavedFilter,
+      PrefetchHooks Function()
+    >;
 
 class $RecallDatabaseManager {
   final _$RecallDatabase _db;
@@ -2724,4 +3341,6 @@ class $RecallDatabaseManager {
       $$FsrsStatesTableTableManager(_db, _db.fsrsStates);
   $$ReviewEventsTableTableManager get reviewEvents =>
       $$ReviewEventsTableTableManager(_db, _db.reviewEvents);
+  $$SavedFiltersTableTableManager get savedFilters =>
+      $$SavedFiltersTableTableManager(_db, _db.savedFilters);
 }

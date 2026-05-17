@@ -41,3 +41,14 @@ class ReviewEvents extends Table {
   DateTimeColumn get timestamp =>
       dateTime().withDefault(currentDateAndTime)();
 }
+
+class SavedFilters extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get language => text().nullable()();
+  TextColumn get tagQuery => text()();
+  TextColumn get logicOperator =>
+      text().withDefault(const Constant('and'))();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}

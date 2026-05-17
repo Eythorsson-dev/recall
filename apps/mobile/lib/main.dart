@@ -10,12 +10,14 @@ import 'screens/settings_screen.dart';
 late RecallDatabase database;
 late CardRepository cardRepository;
 late CardGenerationService cardGenerationService;
+late SavedFilterEngine savedFilterEngine;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   database = RecallDatabase(NativeDatabase.memory());
   cardRepository = CardRepository(database);
   cardGenerationService = core.StubCardGenerationService();
+  savedFilterEngine = core.SavedFilterEngine(database);
   runApp(const RecallApp());
 }
 

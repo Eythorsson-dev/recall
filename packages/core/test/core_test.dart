@@ -306,4 +306,135 @@ void main() {
       expect(r30, lessThan(r1));
     });
   });
+
+  group('SavedFilterEngine', () {
+    late RecallDatabase db;
+    late CardRepository repo;
+    late SavedFilterEngine engine;
+
+    setUp(() {
+      db = RecallDatabase(NativeDatabase.memory());
+      repo = CardRepository(db);
+      engine = SavedFilterEngine(db);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    Future<void> seedCards() async {
+      await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'привіт', 'English': 'hello'},
+        fieldSpeakable: {'Ukrainian': true, 'English': false},
+        tags: ['greetings', 'basics'],
+      );
+      await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'кухня', 'English': 'kitchen'},
+        fieldSpeakable: {'Ukrainian': true, 'English': false},
+        tags: ['kitchen', 'basics'],
+      );
+      await repo.createCard(
+        language: 'Spanish',
+        fields: {'Spanish': 'hola', 'English': 'hello'},
+        fieldSpeakable: {'Spanish': true, 'English': false},
+        tags: ['greetings'],
+      );
+      await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'вода', 'English': 'water'},
+        fieldSpeakable: {'Ukrainian': true, 'English': false},
+      );
+    }
+
+    test('AND filter matches cards with all tags', () async {
+      await seedCards();
+      await engine.createFilter(
+        name: 'Ukrainian Basics',
+        language: 'Ukrainian',
+        tags: ['greetings', 'basics'],
+        logicOperator: 'and',
+      );
+
+      final filters = await engine.getAllFilters();
+      final results = await engine.applyFilter(filters.first);
+      expect(results.length, 1);
+      expect(results.first.language, 'Ukrainian');
+    });
+
+    test('OR filter matches cards with any tag', () async {
+      await seedCards();
+      await engine.createFilter(
+        name: 'Greetings or Kitchen',
+        language: 'Ukrainian',
+        tags: ['greetings', 'kitchen'],
+        logicOperator: 'or',
+      );
+
+      final filters = await engine.getAllFilters();
+      final results = await engine.applyFilter(filters.first);
+      expect(results.length, 2);
+    });
+
+    test('language-only filter returns all cards for language', () async {
+      await seedCards();
+      await engine.createFilter(
+        name: 'All Ukrainian',
+        language: 'Ukrainian',
+        tags: [],
+      );
+
+      final filters = await engine.getAllFilters();
+      final results = await engine.applyFilter(filters.first);
+      expect(results.length, 3);
+    });
+
+    test('empty result when no cards match', () async {
+      await seedCards();
+      await engine.createFilter(
+        name: 'Nonexistent',
+        language: 'Ukrainian',
+        tags: ['travel'],
+      );
+
+      final filters = await engine.getAllFilters();
+      final results = await engine.applyFilter(filters.first);
+      expect(results, isEmpty);
+    });
+
+    test('getAllTags returns sorted unique tags', () async {
+      await seedCards();
+      final tags = await engine.getAllTags();
+      expect(tags, ['basics', 'greetings', 'kitchen']);
+    });
+
+    test('getUntaggedCards returns cards with no tags', () async {
+      await seedCards();
+      final untagged = await engine.getUntaggedCards();
+      expect(untagged.length, 1);
+      expect(untagged.first.language, 'Ukrainian');
+    });
+
+    test('fuzzyMatchTags filters by substring', () {
+      final tags = ['greetings', 'grammar', 'kitchen', 'basics'];
+      expect(engine.fuzzyMatchTags(tags, 'gr'),
+          ['greetings', 'grammar']);
+      expect(engine.fuzzyMatchTags(tags, 'kit'), ['kitchen']);
+      expect(engine.fuzzyMatchTags(tags, ''), tags);
+    });
+
+    test('delete filter removes it', () async {
+      final id = await engine.createFilter(
+        name: 'Test',
+        tags: ['test'],
+      );
+      var filters = await engine.getAllFilters();
+      expect(filters.length, 1);
+
+      await engine.deleteFilter(id);
+      filters = await engine.getAllFilters();
+      expect(filters, isEmpty);
+    });
+  });
 }
