@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart';
 
+import 'tables.dart';
+
 part 'database.g.dart';
 
-@DriftDatabase()
+@DriftDatabase(tables: [Cards, FsrsStates, ReviewEvents])
 class RecallDatabase extends _$RecallDatabase {
   RecallDatabase(super.e);
 

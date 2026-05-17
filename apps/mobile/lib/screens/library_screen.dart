@@ -1,0 +1,69 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:core/core.dart' as core;
+
+import '../main.dart';
+import 'card_form_screen.dart';
+
+class LibraryScreen extends StatefulWidget {
+  const LibraryScreen({super.key});
+
+  @override
+  State<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> {
+  List<core.Card> _cards = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCards();
+  }
+
+  Future<void> _loadCards() async {
+    final cards = await cardRepository.getAllCards();
+    if (mounted) setState(() => _cards = cards);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Library')),
+      body: _cards.isEmpty
+          ? const Center(child: Text('No cards yet. Tap + to create one.'))
+          : ListView.builder(
+              itemCount: _cards.length,
+              itemBuilder: (context, index) {
+                final card = _cards[index];
+                final fields = Map<String, String>.from(
+                    jsonDecode(card.fields) as Map<String, dynamic>);
+                final values = fields.values.toList();
+                return ListTile(
+                  title: Text(values.isNotEmpty ? values[0] : ''),
+                  subtitle: Text(values.length > 1 ? values[1] : ''),
+                  trailing: Text(card.language),
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CardFormScreen(cardId: card.id),
+                      ),
+                    );
+                    _loadCards();
+                  },
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CardFormScreen()),
+          );
+          _loadCards();
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}

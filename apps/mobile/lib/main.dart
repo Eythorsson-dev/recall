@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:core/core.dart';
+import 'package:drift/native.dart';
+
+import 'screens/home_screen.dart';
+import 'screens/library_screen.dart';
+import 'screens/settings_screen.dart';
+
+late RecallDatabase database;
+late CardRepository cardRepository;
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  database = RecallDatabase(NativeDatabase.memory());
+  cardRepository = CardRepository(database);
   runApp(const RecallApp());
 }
 
@@ -30,27 +42,29 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
-  static const _destinations = [
-    NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
-    NavigationDestination(icon: Icon(Icons.library_books), label: 'Library'),
-    NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Text(
-          _destinations[_selectedIndex].label,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: const [
+          HomeScreen(),
+          LibraryScreen(),
+          SettingsScreen(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);
         },
-        destinations: _destinations,
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(
+              icon: Icon(Icons.library_books), label: 'Library'),
+          NavigationDestination(
+              icon: Icon(Icons.settings), label: 'Settings'),
+        ],
       ),
     );
   }

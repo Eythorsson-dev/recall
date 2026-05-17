@@ -81,7 +81,7 @@ packages:
     source: hosted
     version: "1.0.9"
   drift:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: drift
       sha256: "8033500116b24398fba0cca0369cc31678cd627c01e41753a61186911cea743e"
@@ -130,6 +130,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  fsrs:
+    dependency: "direct main"
+    description:
+      name: fsrs
+      sha256: b50dbee450a424dbac4fb0f49cae25ff2e4e6d01844caa1ec0c26de5baba8071
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.1"
   glob:
     dependency: transitive
     description:
