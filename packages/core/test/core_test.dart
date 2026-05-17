@@ -437,4 +437,132 @@ void main() {
       expect(filters, isEmpty);
     });
   });
+
+  group('ProgressTracker', () {
+    late RecallDatabase db;
+    late CardRepository repo;
+    late ProgressTracker tracker;
+
+    setUp(() {
+      db = RecallDatabase(NativeDatabase.memory());
+      repo = CardRepository(db);
+      tracker = ProgressTracker(db);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('empty database returns zero stats', () async {
+      final stats = await tracker.getStats();
+      expect(stats.streak, 0);
+      expect(stats.wordsLearned, 0);
+      expect(stats.sessionProgress, 0);
+    });
+
+    test('words learned counts unique cards rated Good or Easy', () async {
+      final id1 = await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'так', 'English': 'yes'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+      final id2 = await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'ні', 'English': 'no'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+      final id3 = await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'добре', 'English': 'good'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+
+      await repo.recordReviewEvent(
+        cardId: id1,
+        rating: fsrs.Rating.good.value,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+      await repo.recordReviewEvent(
+        cardId: id2,
+        rating: fsrs.Rating.easy.value,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+      await repo.recordReviewEvent(
+        cardId: id3,
+        rating: fsrs.Rating.again.value,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+
+      final stats = await tracker.getStats();
+      expect(stats.wordsLearned, 2);
+    });
+
+    test('words learned never decreases (same card rated Again after Good)',
+        () async {
+      final id = await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'так', 'English': 'yes'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+
+      await repo.recordReviewEvent(
+        cardId: id,
+        rating: fsrs.Rating.good.value,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+
+      var stats = await tracker.getStats();
+      expect(stats.wordsLearned, 1);
+
+      await repo.recordReviewEvent(
+        cardId: id,
+        rating: fsrs.Rating.again.value,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+
+      stats = await tracker.getStats();
+      expect(stats.wordsLearned, 1);
+    });
+
+    test('session progress counts unique cards reviewed today', () async {
+      final id1 = await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'так', 'English': 'yes'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+      await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'ні', 'English': 'no'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+
+      await repo.recordReviewEvent(
+        cardId: id1,
+        rating: fsrs.Rating.good.value,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+      await repo.recordReviewEvent(
+        cardId: id1,
+        rating: fsrs.Rating.hard.value,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+
+      final stats = await tracker.getStats();
+      expect(stats.sessionProgress, 1);
+    });
+  });
 }

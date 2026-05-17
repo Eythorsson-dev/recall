@@ -11,6 +11,7 @@ late RecallDatabase database;
 late CardRepository cardRepository;
 late CardGenerationService cardGenerationService;
 late SavedFilterEngine savedFilterEngine;
+late ProgressTracker progressTracker;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,7 @@ void main() {
   cardRepository = CardRepository(database);
   cardGenerationService = core.StubCardGenerationService();
   savedFilterEngine = core.SavedFilterEngine(database);
+  progressTracker = core.ProgressTracker(database);
   runApp(const RecallApp());
 }
 

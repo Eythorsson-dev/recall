@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core/core.dart' as core;
 
 import '../main.dart';
 import 'study_session_screen.dart';
@@ -12,17 +13,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _dueCount = 0;
+  core.ProgressStats? _stats;
 
   @override
   void initState() {
     super.initState();
-    _loadDueCount();
+    _loadData();
   }
 
-  Future<void> _loadDueCount() async {
+  Future<void> _loadData() async {
     final due = await cardRepository.getCardsDueToday();
+    final stats = await progressTracker.getStats();
     if (mounted) {
-      setState(() => _dueCount = due.length);
+      setState(() {
+        _dueCount = due.length;
+        _stats = stats;
+      });
     }
   }
 
@@ -30,10 +36,39 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Recall')),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            if (_stats != null) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _statCard(
+                    context,
+                    icon: Icons.local_fire_department,
+                    label: 'Streak',
+                    value: '${_stats!.streak}',
+                    color: Colors.orange,
+                  ),
+                  _statCard(
+                    context,
+                    icon: Icons.school,
+                    label: 'Learned',
+                    value: '${_stats!.wordsLearned}',
+                    color: Colors.green,
+                  ),
+                  _statCard(
+                    context,
+                    icon: Icons.check_circle,
+                    label: 'Today',
+                    value: '${_stats!.sessionProgress} / ${_stats!.sessionTotal}',
+                    color: Colors.blue,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+            ],
             Text(
               '$_dueCount cards due today',
               style: Theme.of(context).textTheme.headlineSmall,
@@ -50,6 +85,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _statCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, size: 32, color: color),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    );
+  }
+
   void _startStudySession() async {
     final result = await showDialog<StudySessionConfig>(
       context: context,
@@ -61,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (_) => StudySessionScreen(config: result),
         ),
       );
-      _loadDueCount();
+      _loadData();
     }
   }
 }

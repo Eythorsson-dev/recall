@@ -12,6 +12,7 @@ void main() {
     cardRepository = CardRepository(database);
     cardGenerationService = core.StubCardGenerationService();
     savedFilterEngine = core.SavedFilterEngine(database);
+    progressTracker = core.ProgressTracker(database);
   });
 
   tearDown(() async {
