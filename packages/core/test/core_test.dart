@@ -565,4 +565,115 @@ void main() {
       expect(stats.sessionProgress, 1);
     });
   });
+
+  group('SentenceValidator', () {
+    test('validates sentence with all known words', () {
+      final known = {'the', 'cat', 'sat', 'on', 'mat'};
+      expect(
+        SentenceValidator.validate('The cat sat on the mat', 'dog', known),
+        isTrue,
+      );
+    });
+
+    test('rejects sentence with unknown word', () {
+      final known = {'the', 'cat'};
+      expect(
+        SentenceValidator.validate('The cat sat on the mat', 'dog', known),
+        isFalse,
+      );
+    });
+
+    test('target word is excluded from validation', () {
+      final known = {'the', 'cat', 'on', 'mat'};
+      expect(
+        SentenceValidator.validate('The cat sat on the mat', 'sat', known),
+        isTrue,
+      );
+    });
+
+    test('handles punctuation in sentence', () {
+      final known = {'hello', 'world'};
+      expect(
+        SentenceValidator.validate('Hello, world!', 'friend', known),
+        isTrue,
+      );
+    });
+  });
+
+  group('ClozeResult', () {
+    test('generates cloze sentence with blank', () {
+      final result = ClozeResult(
+        sentence: 'The cat sat on the mat',
+        targetWord: 'sat',
+        targetWordIndex: 2,
+      );
+      expect(result.clozeSentence, 'The cat ____ on the mat');
+    });
+  });
+
+  group('KnownVocabulary', () {
+    late RecallDatabase db;
+    late CardRepository repo;
+    late KnownVocabulary knownVocab;
+
+    setUp(() {
+      db = RecallDatabase(NativeDatabase.memory());
+      repo = CardRepository(db);
+      knownVocab = KnownVocabulary(db);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('returns empty set when no reviews', () async {
+      await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'привіт', 'English': 'hello'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+
+      final words = await knownVocab.getKnownWords();
+      expect(words, isEmpty);
+    });
+
+    test('returns words from cards rated Good or Easy', () async {
+      final id = await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'привіт', 'English': 'hello'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+
+      await repo.recordReviewEvent(
+        cardId: id,
+        rating: 3,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+
+      final words = await knownVocab.getKnownWords();
+      expect(words, contains('привіт'));
+      expect(words, contains('hello'));
+    });
+
+    test('excludes cards only rated Again or Hard', () async {
+      final id = await repo.createCard(
+        language: 'Ukrainian',
+        fields: {'Ukrainian': 'ні', 'English': 'no'},
+        fieldSpeakable: {'Ukrainian': false, 'English': false},
+      );
+
+      await repo.recordReviewEvent(
+        cardId: id,
+        rating: 1,
+        studyMode: 'reading',
+        direction: 'source_to_target',
+        timeToRevealSeconds: 1.0,
+      );
+
+      final words = await knownVocab.getKnownWords();
+      expect(words, isEmpty);
+    });
+  });
 }

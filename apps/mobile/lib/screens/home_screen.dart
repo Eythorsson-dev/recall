@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:core/core.dart' as core;
 
 import '../main.dart';
+import 'sentence_builder_screen.dart';
 import 'study_session_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -78,6 +79,18 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: _dueCount > 0 ? () => _startStudySession() : null,
               icon: const Icon(Icons.play_arrow),
               label: const Text('Start Study Session'),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SentenceBuilderScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.edit_note),
+              label: const Text('Sentence Builder'),
             ),
           ],
         ),
