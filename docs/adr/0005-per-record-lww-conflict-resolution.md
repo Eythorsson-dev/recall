@@ -1,7 +1,9 @@
-# Use per-record last-write-wins for sync conflict resolution
+# CloudKit handles sync conflict resolution
 
-Conflicts between devices are resolved using last-write-wins at the record level. Each Card carries an `updated_at` timestamp (client-assigned) and a `version` integer. On sync, the record with the higher `updated_at` wins. Soft deletes (`deleted_at`) ensure deletions propagate correctly before all devices have synced.
+Conflicts between devices are resolved by CloudKit using server-assigned timestamps on the private database. No custom conflict resolution logic is implemented in the app.
 
-Per-field LWW was considered and rejected as over-engineering for this use case. A true conflict requires the user to edit the same card on two devices while both are offline simultaneously — a rare scenario for a personal app. Even when it occurs, the consequence is losing one small edit on one card, which the user can trivially fix. The added complexity of per-field timestamps is not justified by this risk profile.
+The previous approach (per-record last-write-wins via client-assigned `updated_at` + `version` fields) was designed for PocketBase, which required the app to implement conflict detection and resolution explicitly. CloudKit's private database handles this at the infrastructure level — each record has a server-managed `recordChangeTag`; CloudKit rejects stale writes and the app re-fetches and retries.
 
-CRDTs and Operational Transformation were rejected entirely — both are designed for multi-user collaborative text editing, which is not this app's use case.
+For a single-user private database, true conflicts (editing the same card on two devices simultaneously while both are offline) are rare. When they occur, CloudKit's server-wins resolution is acceptable — the consequence is losing one small edit on one card, which the user can trivially fix.
+
+Custom CRDT or operational transform logic was not considered — this is not a multi-user collaborative editing use case.

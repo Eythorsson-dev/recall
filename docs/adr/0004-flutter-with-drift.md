@@ -1,16 +1,20 @@
-# Use Flutter with Drift as the cross-platform app framework
+# Use Swift + SwiftUI + GRDB as the app framework
 
-Flutter with the Drift ORM is the app framework for all clients (iOS, macOS, Android, Windows). A single Dart codebase targets all four platforms with no UI rewrite required when expanding beyond the initial iOS + macOS launch.
+Swift with SwiftUI is the framework for all clients (iOS first; macOS introduced alongside sync in slice 9). GRDB is the SQLite ORM for the local store. A local Swift Package (`Core/`) holds all shared business logic consumed by the Xcode project.
 
 ## Decision
 
-Flutter was chosen after researching four options:
+Flutter was the previous choice and was rejected after implementation because it renders its own widgets via the Impeller engine rather than native UIKit/AppKit controls. The result does not feel native — scroll physics, haptics, typography rendering, context menus, and accessibility are all slightly off. For a daily-use app on Apple devices, this is unacceptable.
 
-- **React Native**: Ruled out. macOS is a day-one launch target and React Native treats it as second-class — `expo-sqlite` doesn't work on macOS, EAS Build doesn't support macOS targets, and every third-party library requires manual macOS compatibility auditing.
-- **Tauri v2**: Ruled out for a mobile-first app. No official TTS plugin (requires custom Rust/Swift native bridge), convoluted iOS build pipeline, and WebView-based rendering is noticeable in a swipe-heavy flashcard UI.
-- **Swift/SwiftUI + Skip**: Compelling for native Apple quality. Skip (open-sourced Jan 2026) transpiles SwiftUI to Jetpack Compose and is production-viable for standard UI components. Ruled out because Windows is a non-starter from Swift in any realistic timeframe, and Skip introduces framework dependency risk for Android.
-- **Flutter**: Production-ready on iOS, macOS, Android, and Windows today. Drift provides the strongest offline-first SQLite story of any cross-platform framework (bundled SQLite, type-safe ORM, identical behaviour across all targets). `flutter_tts` covers TTS on all four platforms natively.
+Swift + SwiftUI was previously rejected because of the cross-platform constraint (Android, Windows). That constraint no longer applies — the app is Apple-only by design (see ADR-0003). With that constraint removed, SwiftUI is the correct choice: actual native components, real UIKit scroll physics, SF Symbols, full accessibility tree, and natural CloudKit integration.
+
+## Structure
+
+- `Core/` — local Swift Package: FSRS scheduler (`open-spaced-repetition/swift-fsrs`), GRDB repositories, CloudKit sync client, AI service clients
+- `Recall/` — single Xcode project with iOS and macOS targets; macOS deferred until slice 9
 
 ## Trade-offs accepted
 
-Flutter renders its own widgets via the Impeller engine rather than native UIKit/AppKit controls. The app will not feel 100% native to power macOS users. This is acceptable for a flashcard and forms app where the design is fully controlled.
+- iOS and macOS views share SwiftUI code but diverge where platform idioms differ (`#if os(iOS)`, `NavigationSplitView`). This is normal SwiftUI multi-platform development.
+- The 7 slices already implemented in Flutter are discarded. The domain logic is well-understood and the rewrite in Swift is estimated to be faster than the original implementation.
+- Android and Windows are permanently off the table. This was an explicit decision — see ADR-0003.

@@ -46,10 +46,10 @@ An immutable record of a single card review within a Study Session. Contains: Ca
 ### Sync and infrastructure
 
 **Sync Backend**:
-PocketBase instance hosted on a Hetzner CX22 VPS (~€4/month). Handles user authentication and data sync between devices. Each device holds a local SQLite store; changes sync via PocketBase REST API when online.
+CloudKit private database scoped to the user's iCloud account. Handles data sync between Apple devices at no cost. No dedicated server or authentication screen — iCloud identity is implicit. Each device holds a local SQLite store; changes sync via CloudKit when online.
 
 **Local Store**:
-A SQLite database on each device. The authoritative source for offline study. Syncs to the Sync Backend when connectivity is available.
+A SQLite database on each device managed via GRDB. The authoritative source for offline study. Syncs to CloudKit when connectivity is available.
 
 ### Card creation
 
