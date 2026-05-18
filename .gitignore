@@ -39,3 +39,6 @@ build/
 
 # Generated
 *.freezed.dart
+
+# Claude Code
+.claude/projects/
