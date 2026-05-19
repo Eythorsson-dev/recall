@@ -3,39 +3,42 @@ import Foundation
 import FSRS
 @testable import Core
 
-private func makeCard() throws -> Card {
+private func makeProgress(direction: StudyDirection = .sourceToTarget) throws -> CardProgress {
     let db = try DatabaseManager.inMemory()
     let deckRepo = DeckRepository(database: db)
     var deck = Deck(name: "Test", sourceLanguage: .ukrainian, targetLanguage: .english)
     try deckRepo.insert(&deck)
-    return Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
+    var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
+    let cardRepo = CardRepository(database: db)
+    try cardRepo.insert(&card)
+    return CardProgress(cardId: card.id!, direction: direction)
 }
 
 @Test func scheduleNewCardWithGoodRating() throws {
     let scheduler = StudyScheduler()
-    let card = try makeCard()
+    let progress = try makeProgress()
 
-    let updated = try scheduler.schedule(card: card, rating: .good)
+    let updated = scheduler.schedule(progress: progress, rating: .good)
     #expect(updated.reps == 1)
     #expect(updated.fsrsState != 0)
     #expect(updated.stability > 0)
-    #expect(updated.due > card.due)
+    #expect(updated.due > progress.due)
 }
 
 @Test func scheduleNewCardWithAgainKeepsLearning() throws {
     let scheduler = StudyScheduler()
-    let card = try makeCard()
+    let progress = try makeProgress()
 
-    let updated = try scheduler.schedule(card: card, rating: .again)
+    let updated = scheduler.schedule(progress: progress, rating: .again)
     #expect(updated.reps == 1)
-    #expect(updated.lapses == 1)
+    #expect(updated.fsrsState == 1) // stays in Learning state; new cards don't count as lapses
 }
 
 @Test func previewReturnsFourOptions() throws {
     let scheduler = StudyScheduler()
-    let card = try makeCard()
+    let progress = try makeProgress()
 
-    let previews = try scheduler.preview(card: card)
+    let previews = scheduler.preview(progress: progress)
     #expect(previews.count == 4)
     #expect(previews[.again] != nil)
     #expect(previews[.hard] != nil)
@@ -45,9 +48,9 @@ private func makeCard() throws -> Card {
 
 @Test func easyRatingGivesLongerInterval() throws {
     let scheduler = StudyScheduler()
-    let card = try makeCard()
+    let progress = try makeProgress()
 
-    let good = try scheduler.schedule(card: card, rating: .good)
-    let easy = try scheduler.schedule(card: card, rating: .easy)
+    let good = scheduler.schedule(progress: progress, rating: .good)
+    let easy = scheduler.schedule(progress: progress, rating: .easy)
     #expect(easy.due >= good.due)
 }

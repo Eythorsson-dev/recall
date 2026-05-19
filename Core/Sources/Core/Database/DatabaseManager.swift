@@ -178,6 +178,65 @@ public final class DatabaseManager: Sendable {
             try db.execute(sql: "PRAGMA foreign_keys = ON")
         }
 
+        migrator.registerMigration("v5_card_progress") { db in
+            try db.create(table: "cardProgress") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("cardId", .integer).notNull().references("card", onDelete: .cascade)
+                t.column("direction", .text).notNull()
+                t.column("due", .datetime).notNull().defaults(sql: "CURRENT_TIMESTAMP")
+                t.column("stability", .double).notNull().defaults(to: 0)
+                t.column("difficulty", .double).notNull().defaults(to: 0)
+                t.column("elapsedDays", .double).notNull().defaults(to: 0)
+                t.column("scheduledDays", .double).notNull().defaults(to: 0)
+                t.column("reps", .integer).notNull().defaults(to: 0)
+                t.column("lapses", .integer).notNull().defaults(to: 0)
+                t.column("fsrsState", .integer).notNull().defaults(to: 0)
+                t.column("lastReview", .datetime)
+                t.column("learningSteps", .integer).notNull().defaults(to: 0)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(
+                index: "cardProgress_cardId_direction",
+                on: "cardProgress",
+                columns: ["cardId", "direction"],
+                unique: true
+            )
+
+            // Copy existing FSRS data into both direction rows for every card
+            for direction in ["source_to_target", "target_to_source"] {
+                try db.execute(sql: """
+                    INSERT INTO cardProgress
+                        (cardId, direction, due, stability, difficulty, elapsedDays, scheduledDays,
+                         reps, lapses, fsrsState, lastReview, learningSteps, createdAt, updatedAt)
+                    SELECT id, '\(direction)', due, stability, difficulty, elapsedDays, scheduledDays,
+                           reps, lapses, fsrsState, lastReview, learningSteps, createdAt, updatedAt
+                    FROM card
+                    """)
+            }
+
+            // Rebuild card table without FSRS columns (SQLite requires table rebuild for DROP COLUMN)
+            try db.execute(sql: "PRAGMA foreign_keys = OFF")
+            try db.create(table: "card_new") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("deckId", .integer).notNull().references("deck", onDelete: .cascade)
+                t.column("sourceValue", .text).notNull().defaults(to: "")
+                t.column("targetValue", .text).notNull().defaults(to: "")
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+                t.column("deletedAt", .datetime)
+            }
+            try db.execute(sql: """
+                INSERT INTO card_new (id, deckId, sourceValue, targetValue, createdAt, updatedAt, deletedAt)
+                SELECT id, deckId, sourceValue, targetValue, createdAt, updatedAt, deletedAt
+                FROM card
+                """)
+            try db.drop(table: "card")
+            try db.rename(table: "card_new", to: "card")
+            try db.execute(sql: "PRAGMA foreign_keys = ON")
+        }
+
         try migrator.migrate(writer)
     }
 }

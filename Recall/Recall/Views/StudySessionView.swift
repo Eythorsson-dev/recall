@@ -5,10 +5,11 @@ struct StudySessionView: View {
     let database: DatabaseManager
     let deckLookup: [Int64: Deck]
     let selectedDeckIds: [Int64]
-    let direction: StudyDirection
+    let direction: StudyDirection?
     @Environment(\.dismiss) private var dismiss
 
-    @State private var queue: [Card] = []
+    @State private var queue: [CardProgress] = []
+    @State private var cardLookup: [Int64: Card] = [:]
     @State private var currentIndex = 0
     @State private var isRevealed = false
     @State private var revealTime: Date?
@@ -20,8 +21,8 @@ struct StudySessionView: View {
         Group {
             if sessionComplete {
                 sessionCompleteView
-            } else if let card = currentCard {
-                cardView(card)
+            } else if let progress = currentProgress {
+                cardView(progress)
             } else {
                 ProgressView("Loading cards…")
             }
@@ -32,27 +33,27 @@ struct StudySessionView: View {
         .onAppear { loadQueue() }
     }
 
-    private var currentCard: Card? {
+    private var currentProgress: CardProgress? {
         guard currentIndex < queue.count else { return nil }
         return queue[currentIndex]
     }
 
     @ViewBuilder
-    private func cardView(_ card: Card) -> some View {
+    private func cardView(_ progress: CardProgress) -> some View {
         VStack(spacing: 24) {
             Spacer()
 
-            promptView(card)
+            promptView(progress)
 
             if isRevealed {
                 Divider().padding(.horizontal, 32)
-                answerView(card)
+                answerView(progress)
             }
 
             Spacer()
 
             if isRevealed {
-                ratingButtons(card)
+                ratingButtons(progress)
             } else {
                 Button {
                     revealTime = Date()
@@ -73,8 +74,8 @@ struct StudySessionView: View {
     }
 
     @ViewBuilder
-    private func promptView(_ card: Card) -> some View {
-        let (label, value) = promptContent(card)
+    private func promptView(_ progress: CardProgress) -> some View {
+        let (label, value) = promptContent(progress)
         VStack(spacing: 8) {
             Text(label)
                 .font(.caption)
@@ -87,8 +88,8 @@ struct StudySessionView: View {
     }
 
     @ViewBuilder
-    private func answerView(_ card: Card) -> some View {
-        let (label, value) = answerContent(card)
+    private func answerView(_ progress: CardProgress) -> some View {
+        let (label, value) = answerContent(progress)
         VStack(spacing: 8) {
             Text(label)
                 .font(.caption)
@@ -100,52 +101,43 @@ struct StudySessionView: View {
         .padding(.horizontal)
     }
 
-    private func promptContent(_ card: Card) -> (String, String) {
-        let deck = deckLookup[card.deckId]
-        switch effectiveDirection(card) {
+    private func promptContent(_ progress: CardProgress) -> (String, String) {
+        let card = cardLookup[progress.cardId]
+        let deck = card.flatMap { deckLookup[$0.deckId] }
+        switch progress.direction {
         case .sourceToTarget:
-            return (deck?.sourceField ?? "", card.sourceValue)
+            return (deck?.sourceField ?? "", card?.sourceValue ?? "")
         case .targetToSource:
-            return (deck?.targetField ?? "", card.targetValue)
-        case .both:
-            return (deck?.sourceField ?? "", card.sourceValue)
+            return (deck?.targetField ?? "", card?.targetValue ?? "")
         }
     }
 
-    private func answerContent(_ card: Card) -> (String, String) {
-        let deck = deckLookup[card.deckId]
-        switch effectiveDirection(card) {
+    private func answerContent(_ progress: CardProgress) -> (String, String) {
+        let card = cardLookup[progress.cardId]
+        let deck = card.flatMap { deckLookup[$0.deckId] }
+        switch progress.direction {
         case .sourceToTarget:
-            return (deck?.targetField ?? "", card.targetValue)
+            return (deck?.targetField ?? "", card?.targetValue ?? "")
         case .targetToSource:
-            return (deck?.sourceField ?? "", card.sourceValue)
-        case .both:
-            return (deck?.targetField ?? "", card.targetValue)
+            return (deck?.sourceField ?? "", card?.sourceValue ?? "")
         }
-    }
-
-    private func effectiveDirection(_ card: Card) -> StudyDirection {
-        if direction == .both {
-            return card.id.map { $0 % 2 == 0 ? .sourceToTarget : .targetToSource } ?? .sourceToTarget
-        }
-        return direction
     }
 
     @ViewBuilder
-    private func ratingButtons(_ card: Card) -> some View {
+    private func ratingButtons(_ progress: CardProgress) -> some View {
         HStack(spacing: 12) {
-            ratingButton("Again", rating: .again, color: .red, card: card)
-            ratingButton("Hard", rating: .hard, color: .orange, card: card)
-            ratingButton("Good", rating: .good, color: .green, card: card)
-            ratingButton("Easy", rating: .easy, color: .blue, card: card)
+            ratingButton("Again", rating: .again, color: .red, progress: progress)
+            ratingButton("Hard", rating: .hard, color: .orange, progress: progress)
+            ratingButton("Good", rating: .good, color: .green, progress: progress)
+            ratingButton("Easy", rating: .easy, color: .blue, progress: progress)
         }
         .padding(.horizontal)
     }
 
     @ViewBuilder
-    private func ratingButton(_ title: String, rating: Rating, color: Color, card: Card) -> some View {
+    private func ratingButton(_ title: String, rating: Rating, color: Color, progress: CardProgress) -> some View {
         Button {
-            rateCard(card, rating: rating)
+            rateCard(progress, rating: rating)
         } label: {
             Text(title)
                 .font(.subheadline.weight(.semibold))
@@ -157,23 +149,22 @@ struct StudySessionView: View {
         }
     }
 
-    private func rateCard(_ card: Card, rating: Rating) {
-        guard let cardId = card.id else { return }
+    private func rateCard(_ progress: CardProgress, rating: Rating) {
         let now = Date()
         let timeToReveal = revealTime.map { now.timeIntervalSince($0) } ?? 0
 
         do {
-            var updated = scheduler.schedule(card: card, rating: rating, now: now)
-            let cardRepo = CardRepository(database: database)
-            try cardRepo.update(&updated)
+            var updated = scheduler.schedule(progress: progress, rating: rating, now: now)
+            let progressRepo = CardProgressRepository(database: database)
+            try progressRepo.update(&updated)
             queue[currentIndex] = updated
 
             let eventRepo = ReviewEventRepository(database: database)
             var event = ReviewEvent(
-                cardId: cardId,
+                cardId: progress.cardId,
                 rating: Int(rating.rawValue),
                 studyMode: "reading",
-                direction: direction,
+                direction: progress.direction,
                 timeToRevealSeconds: timeToReveal
             )
             try eventRepo.insert(&event)
@@ -209,19 +200,33 @@ struct StudySessionView: View {
     }
 
     private func loadQueue() {
-        let repo = CardRepository(database: database)
-        let due = (try? repo.fetchDue(deckIds: selectedDeckIds)) ?? []
-        queue = due.isEmpty ? ((try? repo.fetchAll(deckIds: selectedDeckIds)) ?? []) : due
-        if queue.isEmpty {
+        let progressRepo = CardProgressRepository(database: database)
+        let cardRepo = CardRepository(database: database)
+
+        do {
+            let due = try progressRepo.fetchDueForSession(
+                deckIds: selectedDeckIds,
+                direction: direction
+            )
+            let progressItems = due.isEmpty
+                ? try progressRepo.fetchAllForSession(deckIds: selectedDeckIds, direction: direction)
+                : due
+
+            queue = progressItems
+
+            let cardIds = Set(progressItems.map(\.cardId))
+            var lookup: [Int64: Card] = [:]
+            for cardId in cardIds {
+                if let card = try cardRepo.fetchById(cardId) {
+                    lookup[cardId] = card
+                }
+            }
+            cardLookup = lookup
+
+            if queue.isEmpty { sessionComplete = true }
+        } catch {
+            print("Load queue error: \(error)")
             sessionComplete = true
         }
-    }
-
-    private func restartSession() {
-        currentIndex = 0
-        isRevealed = false
-        revealTime = nil
-        sessionComplete = false
-        loadQueue()
     }
 }

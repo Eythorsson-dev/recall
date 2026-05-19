@@ -24,22 +24,6 @@ private func makeTestDeck(in db: DatabaseManager) throws -> Deck {
     #expect(all[0].sourceValue == "привіт")
 }
 
-@Test func fetchDueReturnsOnlyDueCards() throws {
-    let db = try DatabaseManager.inMemory()
-    let deck = try makeTestDeck(in: db)
-    let repo = CardRepository(database: db)
-    let now = Date()
-
-    var dueCard = Card(deckId: deck.id!, sourceValue: "так", targetValue: "yes", due: now.addingTimeInterval(-3600))
-    var futureCard = Card(deckId: deck.id!, sourceValue: "ні", targetValue: "no", due: now.addingTimeInterval(86400))
-    try repo.insert(&dueCard)
-    try repo.insert(&futureCard)
-
-    let due = try repo.fetchDue(deckId: deck.id!, before: now)
-    #expect(due.count == 1)
-    #expect(due[0].sourceValue == "так")
-}
-
 @Test func softDeleteSetsDeletedAt() throws {
     let db = try DatabaseManager.inMemory()
     let deck = try makeTestDeck(in: db)
@@ -69,4 +53,19 @@ private func makeTestDeck(in db: DatabaseManager) throws -> Deck {
 
     let fetched = try repo.fetchById(card.id!)
     #expect(fetched?.targetValue == "hi")
+}
+
+@Test func insertCreatesProgressRowsForBothDirections() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let cardRepo = CardRepository(database: db)
+    let progressRepo = CardProgressRepository(database: db)
+
+    var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
+    try cardRepo.insert(&card)
+
+    let progress = try progressRepo.fetchAll(forCard: card.id!)
+    #expect(progress.count == 2)
+    #expect(progress.map(\.direction).contains(.sourceToTarget))
+    #expect(progress.map(\.direction).contains(.targetToSource))
 }

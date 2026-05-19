@@ -51,8 +51,15 @@ The user's post-recall feedback on a Card: Again / Hard / Good / Easy. Feeds dir
 **Study Mode**:
 The sensory mode chosen at session start: Reading (text only, manual TTS tap), Listening with Text (TTS auto-plays, text visible), or Listening without Text (TTS auto-plays, text hidden). Saved as part of each Review Event.
 
+- **Reading**: no auto-play. Each speakable Field has a dedicated speaker button the user taps to play.
+- **Listening with Text**: prompt field audio auto-plays when the card appears; answer field audio auto-plays 500ms after the answer is revealed. Text visible throughout.
+- **Listening without Text**: same auto-play timing as Listening with Text, but text is hidden — the user hears the prompt and must recall the answer before revealing. Text appears on reveal.
+
+In all modes, a speaker button is shown for each speakable Field and can be tapped at any time before rating to replay audio. Each tap (including the initial auto-play) increments `audioPlayCount` on the Review Event.
+
 **Review Event**:
-An immutable record of a single card review within a Study Session. Contains: Card ID, Rating, Study Mode, Direction, audio replay count, playback speed used, time-to-reveal (seconds before tapping to show answer), and timestamp. Never edited — only appended. Feeds FSRS scheduling and future per-user weight optimisation.
+An immutable record of a single card review within a Study Session. Contains: Card ID, Rating, Study Mode, Direction, audio play count, time-to-reveal (seconds before tapping to show answer), and timestamp. Never edited — only appended. Feeds FSRS scheduling and future per-user weight optimisation.
+_Note_: `playbackSpeed` is retained and always written as `1.0` in the MVP — preserved for when variable speed is introduced. `audioPlayCount` counts every speaker button tap (including the initial auto-play in Listening modes) — not just replays.
 
 ### Sync and infrastructure
 
@@ -109,6 +116,25 @@ A single push notification per day at a user-chosen time (picked during onboardi
 
 **Streak-at-Risk Notification**:
 A variant of the Daily Reminder sent when the user has a Streak of 3+ days and has not opened the app within 2 hours of their chosen reminder time. Copy: "[N]-day streak — just 1 card keeps it going." Always accompanied by a Streak Freeze escape valve so it reads as helpful, not coercive.
+
+### TTS and audio
+
+**Supported Language**:
+An enum in `Core` representing every language the app provides TTS for. Each case carries a hard-coded `defaultVoiceID` mapping to a specific Google Cloud TTS Neural2 voice. Adding a new language means adding a case — no settings screen or per-user voice selection in the MVP.
+_Avoid_: language string, locale string
+
+**TTS Service**:
+The `Core` component responsible for generating speech audio from a speakable Field value. Primary engine: Google Cloud TTS Neural2 (free 1M chars/month, high-fidelity, supports Ukrainian and Spanish). Fallback engine: `AVSpeechSynthesizer` — used only when no cached audio exists and the device is offline. The fallback is silent for unsupported languages (e.g. Ukrainian via AVSpeechSynthesizer); the TTS Service never surfaces a broken state to the user.
+
+**Audio Cache**:
+Content-addressed storage of generated audio files, keyed by `SHA256(text + language + voiceID)`. Lives in the app's local documents directory and syncs to CloudKit. Deduplicates identical text across Cards — "hola" is generated and stored once regardless of how many Cards contain it. Orphaned files (no Card references the hash) are removed on periodic garbage-collection sweeps.
+
+**TTS Generation Queue**:
+A persistent, idempotent queue of pending audio generation jobs. A job is enqueued when a Card enters the Library (on save for manual cards, on accept for AI-generated cards) or when a speakable Field is edited. Jobs execute when connectivity is available and are retried on failure. Survives app restarts. Once a job completes, the resulting audio file is written to the Audio Cache and synced via CloudKit.
+
+**Speakable Field**:
+A Field on a Card whose value should be spoken aloud during study. Marked at the Deck level via `sourceSpeakable` / `targetSpeakable`. Only speakable Fields enqueue TTS generation jobs and appear in Listening study modes.
+_Avoid_: audio field, voice field
 
 ### AI features
 

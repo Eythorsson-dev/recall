@@ -7,7 +7,7 @@ struct StudySetupView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedDeckIds: Set<Int64> = []
-    @State private var direction: StudyDirection = .sourceToTarget
+    @State private var direction: StudyDirection? = nil
     @State private var dueCount = 0
     @State private var totalCount = 0
     @State private var isStudying = false
@@ -39,6 +39,7 @@ struct StudySetupView: View {
                 )
             }
             .onChange(of: selectedDeckIds) { loadDueCount() }
+            .onChange(of: direction) { loadDueCount() }
             .onAppear {
                 selectedDeckIds = Set(decks.compactMap(\.id))
                 loadDueCount()
@@ -201,22 +202,34 @@ struct StudySetupView: View {
     }
 
     private func loadDueCount() {
-        let repo = CardRepository(database: database)
+        let progressRepo = CardProgressRepository(database: database)
         let ids = Array(selectedDeckIds)
-        dueCount   = (try? repo.fetchDue(deckIds: ids).count) ?? 0
-        totalCount = (try? repo.fetchAll(deckIds: ids).count) ?? 0
+        dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction)) ?? 0
+        totalCount = (try? progressRepo.fetchCardCount(deckIds: ids)) ?? 0
     }
 }
 
 // MARK: - Direction Picker
 
 private struct DirectionPicker: View {
-    @Binding var selection: StudyDirection
+    @Binding var selection: StudyDirection?
+
+    private struct Option: Identifiable {
+        let id: Int
+        let label: String
+        let value: StudyDirection?
+    }
+
+    private let options: [Option] = [
+        Option(id: 0, label: "Forward", value: .sourceToTarget),
+        Option(id: 1, label: "Reverse", value: .targetToSource),
+        Option(id: 2, label: "Both",    value: nil)
+    ]
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(StudyDirection.allCases, id: \.self) { dir in
-                dirButton(dir)
+            ForEach(options) { option in
+                dirButton(option)
             }
         }
         .background(Color(.secondarySystemGroupedBackground))
@@ -224,14 +237,14 @@ private struct DirectionPicker: View {
     }
 
     @ViewBuilder
-    private func dirButton(_ dir: StudyDirection) -> some View {
-        let isActive = selection == dir
+    private func dirButton(_ option: Option) -> some View {
+        let isActive = selection == option.value
         Button {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                selection = dir
+                selection = option.value
             }
         } label: {
-            Text(label(for: dir))
+            Text(option.label)
                 .font(.system(size: 13, weight: isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? .white : Color.secondary)
                 .lineLimit(1)
@@ -249,13 +262,5 @@ private struct DirectionPicker: View {
                 )
         }
         .buttonStyle(.plain)
-    }
-
-    private func label(for dir: StudyDirection) -> String {
-        switch dir {
-        case .sourceToTarget: return "Forward"
-        case .targetToSource: return "Reverse"
-        case .both:           return "Both"
-        }
     }
 }

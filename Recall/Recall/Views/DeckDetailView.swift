@@ -1,7 +1,7 @@
 import SwiftUI
 import Core
 
-private extension Card {
+private extension CardProgress {
     enum FSRSState: Int {
         case new = 0, learning = 1, review = 2, relearning = 3
 
@@ -41,10 +41,11 @@ struct DeckDetailView: View {
     let database: DatabaseManager
     let deck: Deck
     @State private var cards: [Card] = []
+    @State private var progressByCard: [Int64: CardProgress] = [:]
     @State private var showingCreateCard = false
 
-    private var dueCount: Int { cards.filter { $0.isDue }.count }
-    private var newCount: Int { cards.filter { $0.state == .new }.count }
+    private var dueCount: Int { progressByCard.values.filter { $0.isDue }.count }
+    private var newCount: Int { progressByCard.values.filter { $0.state == .new }.count }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -57,7 +58,7 @@ struct DeckDetailView: View {
                 }
 
                 ForEach(cards) { card in
-                    cardRow(card)
+                    cardRow(card, progress: progressByCard[card.id!])
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
                         .listRowSeparator(.hidden)
@@ -125,10 +126,13 @@ struct DeckDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    private func cardRow(_ card: Card) -> some View {
-        HStack(alignment: .center, spacing: 14) {
+    private func cardRow(_ card: Card, progress: CardProgress?) -> some View {
+        let state = progress?.state ?? .new
+        let isDue = progress?.isDue ?? false
+
+        return HStack(alignment: .center, spacing: 14) {
             Capsule()
-                .fill(card.state.color)
+                .fill(state.color)
                 .frame(width: 3, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -143,23 +147,25 @@ struct DeckDetailView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 5) {
-                Text(card.state.label)
+                Text(state.label)
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(card.state.color.opacity(0.12))
-                    .foregroundStyle(card.state.color)
+                    .background(state.color.opacity(0.12))
+                    .foregroundStyle(state.color)
                     .clipShape(Capsule())
 
                 HStack(spacing: 5) {
-                    if card.reps > 0 {
-                        Label("\(card.reps)", systemImage: "arrow.trianglehead.2.clockwise")
+                    if let p = progress, p.reps > 0 {
+                        Label("\(p.reps)", systemImage: "arrow.trianglehead.2.clockwise")
                             .font(.system(size: 10))
                             .foregroundStyle(.tertiary)
                     }
-                    Text(card.dueLabel)
-                        .font(.system(size: 11))
-                        .foregroundStyle(card.isDue ? AnyShapeStyle(Color(hue: 0.08, saturation: 0.9, brightness: 0.95)) : AnyShapeStyle(.tertiary))
+                    if let p = progress {
+                        Text(p.dueLabel)
+                            .font(.system(size: 11))
+                            .foregroundStyle(isDue ? AnyShapeStyle(Color(hue: 0.08, saturation: 0.9, brightness: 0.95)) : AnyShapeStyle(.tertiary))
+                    }
                 }
             }
         }
@@ -201,8 +207,17 @@ struct DeckDetailView: View {
 
     private func loadCards() {
         guard let deckId = deck.id else { return }
-        let repo = CardRepository(database: database)
-        cards = (try? repo.fetchAll(deckId: deckId)) ?? []
+        let cardRepo = CardRepository(database: database)
+        let progressRepo = CardProgressRepository(database: database)
+        cards = (try? cardRepo.fetchAll(deckId: deckId)) ?? []
+        var lookup: [Int64: CardProgress] = [:]
+        for card in cards {
+            guard let cardId = card.id else { continue }
+            if let p = try? progressRepo.fetch(cardId: cardId, direction: .sourceToTarget) {
+                lookup[cardId] = p
+            }
+        }
+        progressByCard = lookup
     }
 
     private func deleteCards(at offsets: IndexSet) {

@@ -6,19 +6,19 @@ public struct StudyScheduler: Sendable {
 
     public init() {}
 
-    public func schedule(card: Card, rating: Rating, now: Date = Date()) -> Card {
-        let fields = bridge.schedule(fields: card.toFSRSFields(), ratingRaw: rating.rawValue, now: now)
-        var updated = card
+    public func schedule(progress: CardProgress, rating: Rating, now: Date = Date()) -> CardProgress {
+        let fields = bridge.schedule(fields: progress.toFSRSFields(), ratingRaw: rating.rawValue, now: now)
+        var updated = progress
         updated.applyFSRSFields(fields)
         return updated
     }
 
-    public func preview(card: Card, now: Date = Date()) -> [Rating: Card] {
-        let previews = bridge.preview(fields: card.toFSRSFields(), now: now)
-        var out: [Rating: Card] = [:]
+    public func preview(progress: CardProgress, now: Date = Date()) -> [Rating: CardProgress] {
+        let previews = bridge.preview(fields: progress.toFSRSFields(), now: now)
+        var out: [Rating: CardProgress] = [:]
         for (rawValue, fields) in previews {
             guard let rating = Rating(rawValue: rawValue) else { continue }
-            var updated = card
+            var updated = progress
             updated.applyFSRSFields(fields)
             out[rating] = updated
         }
