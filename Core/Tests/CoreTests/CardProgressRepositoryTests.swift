@@ -62,18 +62,20 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     let repo = CardProgressRepository(database: db)
     let cardRepo = CardRepository(database: db)
     let now = Date()
+    // cutoff is 30 min ago; only the explicitly-overdue row (1 hour ago) falls before it.
+    // Default CardProgress.due ≈ Date() which is after the cutoff, avoiding the race.
+    let cutoff = now.addingTimeInterval(-1800)
 
     var card1 = Card(deckId: deck.id!, sourceValue: "так", targetValue: "yes")
     var card2 = Card(deckId: deck.id!, sourceValue: "ні", targetValue: "no")
     try cardRepo.insert(&card1)
     try cardRepo.insert(&card2)
 
-    // Make card1 sourceToTarget overdue, leave everything else in the future
     var progress = try repo.fetch(cardId: card1.id!, direction: .sourceToTarget)!
     progress.due = now.addingTimeInterval(-3600)
     try repo.update(&progress)
 
-    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: now)
+    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: cutoff)
     #expect(due.count == 1)
     #expect(due[0].cardId == card1.id!)
     #expect(due[0].direction == .sourceToTarget)
