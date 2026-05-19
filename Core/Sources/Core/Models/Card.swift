@@ -44,7 +44,7 @@ public struct Card: Codable, Identifiable, Sendable {
 extension Card: FetchableRecord, MutablePersistableRecord {
     public static let databaseTableName = "card"
 
-    mutating public func didInsert(_ inserted: InsertionSuccess) {
+    public mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID
     }
 }
