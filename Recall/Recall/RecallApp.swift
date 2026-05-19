@@ -9,7 +9,7 @@ struct RecallApp: App {
     var body: some Scene {
         WindowGroup {
             if let db = databaseManager {
-                HomeScreen(database: db)
+                LibraryView(database: db)
             } else if let error = databaseError {
                 Text("Database error: \(error.localizedDescription)")
             } else {

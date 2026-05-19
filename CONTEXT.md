@@ -31,8 +31,19 @@ _Avoid_: Basic card, front/back card
 **Study Session**:
 A single sitting in which the user reviews Cards from a Deck. Direction (source→target, target→source, or both) is chosen at the start of each session.
 
-**Direction**:
-Which Field is shown as the prompt and which is revealed as the answer during a Study Session. Set per session, not fixed on the Deck.
+**Study Direction**:
+Which Field is shown as the prompt and which is revealed as the answer. Two values: `sourceToTarget` or `targetToSource`. Used on both `CardProgress` (to identify which memory trace is being scheduled) and as an optional session filter (when nil, cards from both directions are included).
+_Avoid_: "both" as a direction value — "both directions" means no direction filter, not a third direction.
+
+**CardProgress**:
+The accumulated FSRS scheduling state for a Card in one Study Direction. Holds: stability, difficulty, due, reps, lapses, FSRS state, elapsed days, scheduled days, last review, learning steps. Each Card has exactly two CardProgress records — one per Study Direction. Drives when that direction of the card is next surfaced for review.
+_Avoid_: card schedule, card state, FSRS record
+
+**CardProgress Migration**:
+When introducing per-direction CardProgress, existing FSRS data from each Card is copied into *both* the `sourceToTarget` and `targetToSource` rows. Both directions start from the same accumulated state. No scheduling history is lost.
+
+**Sibling Suppression**:
+When building a session queue, if both directions of the same Card are due, only the more overdue one (earlier `due` date) is included. The other waits for the next session. Tiebreaker when due dates are equal: prefer `sourceToTarget`, unless the session's direction filter is explicitly `targetToSource`, in which case prefer `targetToSource`.
 
 **Rating**:
 The user's post-recall feedback on a Card: Again / Hard / Good / Easy. Feeds directly into the FSRS scheduler.
@@ -85,7 +96,7 @@ A forgiveness token that preserves a Streak when the user misses a day. Required
 A "X of Y cards today" progress bar shown during a Study Session. Gives a clear "done for today" signal and triggers goal-gradient motivation. Y is the Daily Card Limit, not the total due count.
 
 **Words Learned**:
-A cumulative count of Cards the user has reviewed and rated Good or Easy at least once. Never decreases. The primary long-term progress signal shown on the home screen.
+A cumulative count of Cards where *both* Study Directions have been rated Good or Easy at least once. Never decreases. The primary long-term progress signal shown on the home screen. A card with only one direction learned does not count — knowing a word one way is not the same as knowing it.
 _Avoid_: retention rate, overdue count, mastery percentage (all read as failure metrics)
 
 **Daily Card Limit**:

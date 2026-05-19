@@ -3,6 +3,8 @@ import Core
 
 struct StudySessionView: View {
     let database: DatabaseManager
+    let deckLookup: [Int64: Deck]
+    let selectedDeckIds: [Int64]
     let direction: StudyDirection
     @Environment(\.dismiss) private var dismiss
 
@@ -99,24 +101,26 @@ struct StudySessionView: View {
     }
 
     private func promptContent(_ card: Card) -> (String, String) {
+        let deck = deckLookup[card.deckId]
         switch effectiveDirection(card) {
         case .sourceToTarget:
-            return (card.sourceField, card.sourceValue)
+            return (deck?.sourceField ?? "", card.sourceValue)
         case .targetToSource:
-            return (card.targetField, card.targetValue)
+            return (deck?.targetField ?? "", card.targetValue)
         case .both:
-            return (card.sourceField, card.sourceValue)
+            return (deck?.sourceField ?? "", card.sourceValue)
         }
     }
 
     private func answerContent(_ card: Card) -> (String, String) {
+        let deck = deckLookup[card.deckId]
         switch effectiveDirection(card) {
         case .sourceToTarget:
-            return (card.targetField, card.targetValue)
+            return (deck?.targetField ?? "", card.targetValue)
         case .targetToSource:
-            return (card.sourceField, card.sourceValue)
+            return (deck?.sourceField ?? "", card.sourceValue)
         case .both:
-            return (card.targetField, card.targetValue)
+            return (deck?.targetField ?? "", card.targetValue)
         }
     }
 
@@ -159,7 +163,7 @@ struct StudySessionView: View {
         let timeToReveal = revealTime.map { now.timeIntervalSince($0) } ?? 0
 
         do {
-            var updated = try scheduler.schedule(card: card, rating: rating, now: now)
+            var updated = scheduler.schedule(card: card, rating: rating, now: now)
             let cardRepo = CardRepository(database: database)
             try cardRepo.update(&updated)
             queue[currentIndex] = updated
@@ -169,7 +173,7 @@ struct StudySessionView: View {
                 cardId: cardId,
                 rating: Int(rating.rawValue),
                 studyMode: "reading",
-                direction: direction.rawValue,
+                direction: direction,
                 timeToRevealSeconds: timeToReveal
             )
             try eventRepo.insert(&event)
@@ -206,9 +210,18 @@ struct StudySessionView: View {
 
     private func loadQueue() {
         let repo = CardRepository(database: database)
-        queue = (try? repo.fetchDue()) ?? []
+        let due = (try? repo.fetchDue(deckIds: selectedDeckIds)) ?? []
+        queue = due.isEmpty ? ((try? repo.fetchAll(deckIds: selectedDeckIds)) ?? []) : due
         if queue.isEmpty {
             sessionComplete = true
         }
+    }
+
+    private func restartSession() {
+        currentIndex = 0
+        isRevealed = false
+        revealTime = nil
+        sessionComplete = false
+        loadQueue()
     }
 }

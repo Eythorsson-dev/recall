@@ -3,77 +3,73 @@ import Core
 
 struct LibraryView: View {
     let database: DatabaseManager
-    @State private var cards: [Card] = []
-    @State private var showingCreateCard = false
+    @State private var decks: [Deck] = []
+    @State private var showingCreateDeck = false
+    @State private var showingStudySetup = false
 
     var body: some View {
-        Group {
-            if cards.isEmpty {
-                ContentUnavailableView("No Cards Yet", systemImage: "rectangle.stack", description: Text("Tap + to create your first card."))
-            } else {
-                List {
-                    ForEach(cards) { card in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(card.sourceValue)
-                                .font(.headline)
-                            Text(card.targetValue)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            HStack {
-                                Text(card.language)
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                                Spacer()
-                                Text(stateLabel(card.fsrsState))
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(.fill.tertiary)
-                                    .clipShape(Capsule())
+        NavigationStack {
+            Group {
+                if decks.isEmpty {
+                    ContentUnavailableView("No Decks Yet", systemImage: "rectangle.stack", description: Text("Tap + to create your first deck."))
+                } else {
+                    List {
+                        ForEach(decks) { deck in
+                            NavigationLink {
+                                DeckDetailView(database: database, deck: deck)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(deck.name)
+                                        .font(.headline)
+                                    Text("\(deck.sourceField) → \(deck.targetField)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 2)
                             }
                         }
-                        .padding(.vertical, 2)
+                        .onDelete(perform: deleteDecks)
                     }
-                    .onDelete(perform: deleteCards)
                 }
             }
-        }
-        .navigationTitle("Library")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showingCreateCard = true } label: {
-                    Image(systemName: "plus")
+            .navigationTitle("Recall")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingCreateDeck = true } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
+                        showingStudySetup = true
+                    } label: {
+                        Label("Study", systemImage: "brain.head.profile")
+                    }
+                    .disabled(decks.isEmpty)
                 }
             }
-        }
-        .sheet(isPresented: $showingCreateCard) {
-            CardCreationView(database: database)
-                .onDisappear { loadCards() }
-        }
-        .onAppear { loadCards() }
-    }
-
-    private func stateLabel(_ state: Int) -> String {
-        switch state {
-        case 0: return "New"
-        case 1: return "Learning"
-        case 2: return "Review"
-        case 3: return "Relearning"
-        default: return "Unknown"
+            .sheet(isPresented: $showingCreateDeck) {
+                DeckCreationView(database: database)
+                    .onDisappear { loadDecks() }
+            }
+            .sheet(isPresented: $showingStudySetup) {
+                StudySetupView(database: database, decks: decks)
+            }
+            .onAppear { loadDecks() }
         }
     }
 
-    private func loadCards() {
-        let repo = CardRepository(database: database)
-        cards = (try? repo.fetchAll()) ?? []
+    private func loadDecks() {
+        let repo = DeckRepository(database: database)
+        decks = (try? repo.fetchAll()) ?? []
     }
 
-    private func deleteCards(at offsets: IndexSet) {
-        let repo = CardRepository(database: database)
+    private func deleteDecks(at offsets: IndexSet) {
+        let repo = DeckRepository(database: database)
         for index in offsets {
-            var card = cards[index]
-            try? repo.softDelete(&card)
+            var deck = decks[index]
+            try? repo.softDelete(&deck)
         }
-        loadCards()
+        loadDecks()
     }
 }

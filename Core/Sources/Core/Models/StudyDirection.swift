@@ -1,4 +1,4 @@
-public enum StudyDirection: String, CaseIterable, Sendable {
+public enum StudyDirection: String, Codable, CaseIterable, Sendable {
     case sourceToTarget = "source_to_target"
     case targetToSource = "target_to_source"
     case both

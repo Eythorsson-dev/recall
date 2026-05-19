@@ -29,18 +29,41 @@ public struct CardRepository: Sendable {
         }
     }
 
-    public func fetchAll() throws -> [Card] {
+    public func fetchAll(deckIds: [Int64]) throws -> [Card] {
         try db.reader.read { dbConn in
             try Card
+                .filter(deckIds.contains(Column("deckId")))
+                .filter(Column("deletedAt") == nil)
+                .order(Column("due").asc)
+                .fetchAll(dbConn)
+        }
+    }
+
+    public func fetchAll(deckId: Int64) throws -> [Card] {
+        try db.reader.read { dbConn in
+            try Card
+                .filter(Column("deckId") == deckId)
                 .filter(Column("deletedAt") == nil)
                 .order(Column("createdAt").desc)
                 .fetchAll(dbConn)
         }
     }
 
-    public func fetchDue(before date: Date = Date()) throws -> [Card] {
+    public func fetchDue(deckId: Int64, before date: Date = Date()) throws -> [Card] {
         try db.reader.read { dbConn in
             try Card
+                .filter(Column("deckId") == deckId)
+                .filter(Column("deletedAt") == nil)
+                .filter(Column("due") <= date)
+                .order(Column("due").asc)
+                .fetchAll(dbConn)
+        }
+    }
+
+    public func fetchDue(deckIds: [Int64], before date: Date = Date()) throws -> [Card] {
+        try db.reader.read { dbConn in
+            try Card
+                .filter(deckIds.contains(Column("deckId")))
                 .filter(Column("deletedAt") == nil)
                 .filter(Column("due") <= date)
                 .order(Column("due").asc)

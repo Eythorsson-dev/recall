@@ -6,7 +6,7 @@ public struct ReviewEvent: Codable, Identifiable, Sendable {
     public var cardId: Int64
     public var rating: Int
     public var studyMode: String
-    public var direction: String
+    public var direction: StudyDirection
     public var audioReplayCount: Int
     public var playbackSpeed: Double
     public var timeToRevealSeconds: Double
@@ -17,7 +17,7 @@ public struct ReviewEvent: Codable, Identifiable, Sendable {
         cardId: Int64,
         rating: Int,
         studyMode: String = "reading",
-        direction: String,
+        direction: StudyDirection,
         audioReplayCount: Int = 0,
         playbackSpeed: Double = 1.0,
         timeToRevealSeconds: Double,

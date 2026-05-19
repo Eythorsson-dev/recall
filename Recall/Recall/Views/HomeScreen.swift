@@ -13,11 +13,6 @@ struct HomeScreen: View {
                     } label: {
                         Label("Library", systemImage: "rectangle.stack")
                     }
-                    NavigationLink {
-                        StudySetupView(database: database)
-                    } label: {
-                        Label("Study", systemImage: "brain.head.profile")
-                    }
                 }
             }
             .navigationTitle("Recall")

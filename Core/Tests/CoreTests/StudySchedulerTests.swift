@@ -3,9 +3,17 @@ import Foundation
 import FSRS
 @testable import Core
 
+private func makeCard() throws -> Card {
+    let db = try DatabaseManager.inMemory()
+    let deckRepo = DeckRepository(database: db)
+    var deck = Deck(name: "Test", sourceLanguage: .ukrainian, targetLanguage: .english)
+    try deckRepo.insert(&deck)
+    return Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
+}
+
 @Test func scheduleNewCardWithGoodRating() throws {
     let scheduler = StudyScheduler()
-    let card = Card(language: "Ukrainian", sourceField: "Ukrainian", targetField: "English", sourceValue: "привіт", targetValue: "hello")
+    let card = try makeCard()
 
     let updated = try scheduler.schedule(card: card, rating: .good)
     #expect(updated.reps == 1)
@@ -16,7 +24,7 @@ import FSRS
 
 @Test func scheduleNewCardWithAgainKeepsLearning() throws {
     let scheduler = StudyScheduler()
-    let card = Card(language: "Ukrainian", sourceField: "Ukrainian", targetField: "English", sourceValue: "привіт", targetValue: "hello")
+    let card = try makeCard()
 
     let updated = try scheduler.schedule(card: card, rating: .again)
     #expect(updated.reps == 1)
@@ -25,7 +33,7 @@ import FSRS
 
 @Test func previewReturnsFourOptions() throws {
     let scheduler = StudyScheduler()
-    let card = Card(language: "Ukrainian", sourceField: "Ukrainian", targetField: "English", sourceValue: "привіт", targetValue: "hello")
+    let card = try makeCard()
 
     let previews = try scheduler.preview(card: card)
     #expect(previews.count == 4)
@@ -37,7 +45,7 @@ import FSRS
 
 @Test func easyRatingGivesLongerInterval() throws {
     let scheduler = StudyScheduler()
-    let card = Card(language: "Ukrainian", sourceField: "Ukrainian", targetField: "English", sourceValue: "привіт", targetValue: "hello")
+    let card = try makeCard()
 
     let good = try scheduler.schedule(card: card, rating: .good)
     let easy = try scheduler.schedule(card: card, rating: .easy)

@@ -1,32 +1,27 @@
 import Foundation
-import FSRS
+import FSRSBridge
 
 public struct StudyScheduler: Sendable {
-    private let fsrs: FSRS
+    private let bridge = FSRSBridge()
 
-    public init(parameters: FSRSParameters = FSRSParameters()) {
-        self.fsrs = FSRS(parameters: parameters)
-    }
+    public init() {}
 
-    public func schedule(card: Card, rating: Rating, now: Date = Date()) throws -> Card {
-        let fsrsCard = card.toFSRSCard()
-        let result = try fsrs.next(card: fsrsCard, now: now, grade: rating)
+    public func schedule(card: Card, rating: Rating, now: Date = Date()) -> Card {
+        let fields = bridge.schedule(fields: card.toFSRSFields(), ratingRaw: rating.rawValue, now: now)
         var updated = card
-        updated.applyFSRS(result.card)
+        updated.applyFSRSFields(fields)
         return updated
     }
 
-    public func preview(card: Card, now: Date = Date()) throws -> [Rating: Card] {
-        let fsrsCard = card.toFSRSCard()
-        let results = try fsrs.repeat(card: fsrsCard, now: now)
-        var previews: [Rating: Card] = [:]
-        for rating in [Rating.again, .hard, .good, .easy] {
-            if let item = results[rating] {
-                var updated = card
-                updated.applyFSRS(item.card)
-                previews[rating] = updated
-            }
+    public func preview(card: Card, now: Date = Date()) -> [Rating: Card] {
+        let previews = bridge.preview(fields: card.toFSRSFields(), now: now)
+        var out: [Rating: Card] = [:]
+        for (rawValue, fields) in previews {
+            guard let rating = Rating(rawValue: rawValue) else { continue }
+            var updated = card
+            updated.applyFSRSFields(fields)
+            out[rating] = updated
         }
-        return previews
+        return out
     }
 }

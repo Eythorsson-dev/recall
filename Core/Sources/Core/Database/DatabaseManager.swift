@@ -73,6 +73,111 @@ public final class DatabaseManager: Sendable {
             }
         }
 
+        migrator.registerMigration("v3_explicit_language_pair") { db in
+            try db.execute(sql: "PRAGMA foreign_keys = OFF")
+            try db.create(table: "card_new") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("sourceLanguage", .text).notNull()
+                t.column("targetLanguage", .text).notNull()
+                t.column("sourceValue", .text).notNull().defaults(to: "")
+                t.column("targetValue", .text).notNull().defaults(to: "")
+                t.column("sourceSpeakable", .boolean).notNull().defaults(to: false)
+                t.column("targetSpeakable", .boolean).notNull().defaults(to: false)
+                t.column("due", .datetime).notNull().defaults(sql: "CURRENT_TIMESTAMP")
+                t.column("stability", .double).notNull().defaults(to: 0)
+                t.column("difficulty", .double).notNull().defaults(to: 0)
+                t.column("elapsedDays", .double).notNull().defaults(to: 0)
+                t.column("scheduledDays", .double).notNull().defaults(to: 0)
+                t.column("reps", .integer).notNull().defaults(to: 0)
+                t.column("lapses", .integer).notNull().defaults(to: 0)
+                t.column("fsrsState", .integer).notNull().defaults(to: 0)
+                t.column("lastReview", .datetime)
+                t.column("learningSteps", .integer).notNull().defaults(to: 0)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+                t.column("deletedAt", .datetime)
+            }
+            try db.execute(sql: """
+                INSERT INTO card_new (id, sourceLanguage, targetLanguage, sourceValue, targetValue,
+                                      sourceSpeakable, targetSpeakable, due, stability, difficulty,
+                                      elapsedDays, scheduledDays, reps, lapses, fsrsState,
+                                      lastReview, learningSteps, createdAt, updatedAt, deletedAt)
+                SELECT id, language, language, sourceValue, targetValue,
+                       sourceSpeakable, targetSpeakable, due, stability, difficulty,
+                       elapsedDays, scheduledDays, reps, lapses, fsrsState,
+                       lastReview, learningSteps, createdAt, updatedAt, deletedAt
+                FROM card
+            """)
+            try db.drop(table: "card")
+            try db.rename(table: "card_new", to: "card")
+            try db.execute(sql: "PRAGMA foreign_keys = ON")
+        }
+
+        migrator.registerMigration("v4_introduce_decks") { db in
+            try db.create(table: "deck") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("name", .text).notNull()
+                t.column("sourceLanguage", .text).notNull()
+                t.column("targetLanguage", .text).notNull()
+                t.column("sourceSpeakable", .boolean).notNull().defaults(to: false)
+                t.column("targetSpeakable", .boolean).notNull().defaults(to: false)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+                t.column("deletedAt", .datetime)
+            }
+
+            // One deck per unique language pair from existing cards
+            try db.execute(sql: """
+                INSERT INTO deck (name, sourceLanguage, targetLanguage, sourceSpeakable, targetSpeakable, createdAt, updatedAt)
+                SELECT DISTINCT
+                    sourceLanguage || ' → ' || targetLanguage,
+                    sourceLanguage, targetLanguage,
+                    MAX(sourceSpeakable), MAX(targetSpeakable),
+                    MIN(createdAt), MIN(createdAt)
+                FROM card
+                GROUP BY sourceLanguage, targetLanguage
+            """)
+
+            try db.execute(sql: "PRAGMA foreign_keys = OFF")
+
+            try db.create(table: "card_new") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("deckId", .integer).notNull().references("deck", onDelete: .cascade)
+                t.column("sourceValue", .text).notNull().defaults(to: "")
+                t.column("targetValue", .text).notNull().defaults(to: "")
+                t.column("due", .datetime).notNull().defaults(sql: "CURRENT_TIMESTAMP")
+                t.column("stability", .double).notNull().defaults(to: 0)
+                t.column("difficulty", .double).notNull().defaults(to: 0)
+                t.column("elapsedDays", .double).notNull().defaults(to: 0)
+                t.column("scheduledDays", .double).notNull().defaults(to: 0)
+                t.column("reps", .integer).notNull().defaults(to: 0)
+                t.column("lapses", .integer).notNull().defaults(to: 0)
+                t.column("fsrsState", .integer).notNull().defaults(to: 0)
+                t.column("lastReview", .datetime)
+                t.column("learningSteps", .integer).notNull().defaults(to: 0)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+                t.column("deletedAt", .datetime)
+            }
+
+            try db.execute(sql: """
+                INSERT INTO card_new (id, deckId, sourceValue, targetValue, due, stability, difficulty,
+                                      elapsedDays, scheduledDays, reps, lapses, fsrsState,
+                                      lastReview, learningSteps, createdAt, updatedAt, deletedAt)
+                SELECT c.id,
+                       d.id,
+                       c.sourceValue, c.targetValue, c.due, c.stability, c.difficulty,
+                       c.elapsedDays, c.scheduledDays, c.reps, c.lapses, c.fsrsState,
+                       c.lastReview, c.learningSteps, c.createdAt, c.updatedAt, c.deletedAt
+                FROM card c
+                JOIN deck d ON d.sourceLanguage = c.sourceLanguage AND d.targetLanguage = c.targetLanguage
+            """)
+
+            try db.drop(table: "card")
+            try db.rename(table: "card_new", to: "card")
+            try db.execute(sql: "PRAGMA foreign_keys = ON")
+        }
+
         try migrator.migrate(writer)
     }
 }
