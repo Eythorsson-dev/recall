@@ -11,6 +11,10 @@
 		A10000010000000000000002 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000002 /* HomeScreen.swift */; };
 		A10000010000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000003 /* Assets.xcassets */; };
 		A10000010000000000000010 /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = A60000010000000000000001 /* Core */; };
+		A10000010000000000000020 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* LibraryView.swift */; };
+		A10000010000000000000021 /* CardCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021 /* CardCreationView.swift */; };
+		A10000010000000000000022 /* StudySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022 /* StudySetupView.swift */; };
+		A10000010000000000000023 /* StudySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000023 /* StudySessionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,6 +22,10 @@
 		A20000010000000000000002 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		A20000010000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000010000000000000004 /* Recall.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Recall.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000010000000000000020 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		A20000010000000000000021 /* CardCreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardCreationView.swift; sourceTree = "<group>"; };
+		A20000010000000000000022 /* StudySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySetupView.swift; sourceTree = "<group>"; };
+		A20000010000000000000023 /* StudySessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySessionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +70,10 @@
 			isa = PBXGroup;
 			children = (
 				A20000010000000000000002 /* HomeScreen.swift */,
+				A20000010000000000000020 /* LibraryView.swift */,
+				A20000010000000000000021 /* CardCreationView.swift */,
+				A20000010000000000000022 /* StudySetupView.swift */,
+				A20000010000000000000023 /* StudySessionView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -143,6 +155,10 @@
 			files = (
 				A10000010000000000000001 /* RecallApp.swift in Sources */,
 				A10000010000000000000002 /* HomeScreen.swift in Sources */,
+				A10000010000000000000020 /* LibraryView.swift in Sources */,
+				A10000010000000000000021 /* CardCreationView.swift in Sources */,
+				A10000010000000000000022 /* StudySetupView.swift in Sources */,
+				A10000010000000000000023 /* StudySessionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

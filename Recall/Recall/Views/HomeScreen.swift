@@ -8,11 +8,15 @@ struct HomeScreen: View {
         NavigationStack {
             List {
                 Section {
-                    NavigationLink("Library") {
-                        Text("Library — coming in Slice 2")
+                    NavigationLink {
+                        LibraryView(database: database)
+                    } label: {
+                        Label("Library", systemImage: "rectangle.stack")
                     }
-                    NavigationLink("Study") {
-                        Text("Study Session — coming in Slice 2")
+                    NavigationLink {
+                        StudySetupView(database: database)
+                    } label: {
+                        Label("Study", systemImage: "brain.head.profile")
                     }
                 }
             }

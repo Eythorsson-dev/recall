@@ -46,6 +46,33 @@ public final class DatabaseManager: Sendable {
             }
         }
 
+        migrator.registerMigration("v2_fsrs_and_review_events") { db in
+            try db.alter(table: "card") { t in
+                t.add(column: "due", .datetime).notNull().defaults(sql: "CURRENT_TIMESTAMP")
+                t.add(column: "stability", .double).notNull().defaults(to: 0)
+                t.add(column: "difficulty", .double).notNull().defaults(to: 0)
+                t.add(column: "elapsedDays", .double).notNull().defaults(to: 0)
+                t.add(column: "scheduledDays", .double).notNull().defaults(to: 0)
+                t.add(column: "reps", .integer).notNull().defaults(to: 0)
+                t.add(column: "lapses", .integer).notNull().defaults(to: 0)
+                t.add(column: "fsrsState", .integer).notNull().defaults(to: 0)
+                t.add(column: "lastReview", .datetime)
+                t.add(column: "learningSteps", .integer).notNull().defaults(to: 0)
+            }
+
+            try db.create(table: "reviewEvent") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("cardId", .integer).notNull().references("card", onDelete: .cascade)
+                t.column("rating", .integer).notNull()
+                t.column("studyMode", .text).notNull().defaults(to: "reading")
+                t.column("direction", .text).notNull()
+                t.column("audioReplayCount", .integer).notNull().defaults(to: 0)
+                t.column("playbackSpeed", .double).notNull().defaults(to: 1.0)
+                t.column("timeToRevealSeconds", .double).notNull()
+                t.column("timestamp", .datetime).notNull()
+            }
+        }
+
         try migrator.migrate(writer)
     }
 }
