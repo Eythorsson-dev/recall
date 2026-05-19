@@ -237,6 +237,31 @@ public final class DatabaseManager: Sendable {
             try db.execute(sql: "PRAGMA foreign_keys = ON")
         }
 
+        migrator.registerMigration("v6_study_mode_and_audio_play_count") { db in
+            // SQLite requires a table rebuild to rename a column
+            try db.execute(sql: "PRAGMA foreign_keys = OFF")
+            try db.create(table: "reviewEvent_new") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("cardId", .integer).notNull().references("card", onDelete: .cascade)
+                t.column("rating", .integer).notNull()
+                t.column("studyMode", .text).notNull().defaults(to: "reading")
+                t.column("direction", .text).notNull()
+                t.column("audioPlayCount", .integer).notNull().defaults(to: 0)
+                t.column("playbackSpeed", .double).notNull().defaults(to: 1.0)
+                t.column("timeToRevealSeconds", .double).notNull()
+                t.column("timestamp", .datetime).notNull()
+            }
+            try db.execute(sql: """
+                INSERT INTO reviewEvent_new
+                    (id, cardId, rating, studyMode, direction, audioPlayCount, playbackSpeed, timeToRevealSeconds, timestamp)
+                SELECT id, cardId, rating, studyMode, direction, audioReplayCount, playbackSpeed, timeToRevealSeconds, timestamp
+                FROM reviewEvent
+            """)
+            try db.drop(table: "reviewEvent")
+            try db.rename(table: "reviewEvent_new", to: "reviewEvent")
+            try db.execute(sql: "PRAGMA foreign_keys = ON")
+        }
+
         try migrator.migrate(writer)
     }
 }

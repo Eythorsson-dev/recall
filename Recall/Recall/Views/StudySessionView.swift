@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 import Core
 
 struct StudySessionView: View {
@@ -6,6 +7,7 @@ struct StudySessionView: View {
     let deckLookup: [Int64: Deck]
     let selectedDeckIds: [Int64]
     let direction: StudyDirection?
+    let studyMode: StudyMode
     @Environment(\.dismiss) private var dismiss
 
     @State private var queue: [CardProgress] = []
@@ -14,6 +16,7 @@ struct StudySessionView: View {
     @State private var isRevealed = false
     @State private var revealTime: Date?
     @State private var sessionComplete = false
+    @State private var audioPlayCount = 0
 
     private let scheduler = StudyScheduler()
 
@@ -71,25 +74,35 @@ struct StudySessionView: View {
             }
         }
         .padding(.bottom)
+        .onChange(of: currentIndex) { autoPlayPromptIfNeeded(progress) }
+        .onAppear { autoPlayPromptIfNeeded(progress) }
+        .onChange(of: isRevealed) { newValue in
+            if newValue { autoPlayAnswerIfNeeded(progress) }
+        }
     }
 
     @ViewBuilder
     private func promptView(_ progress: CardProgress) -> some View {
-        let (label, value) = promptContent(progress)
+        let (label, value, isSpeakable, lang) = promptSpeakableContent(progress)
         VStack(spacing: 8) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text(value)
-                .font(.largeTitle)
-                .multilineTextAlignment(.center)
+            if studyMode != .listeningWithoutText {
+                Text(value)
+                    .font(.largeTitle)
+                    .multilineTextAlignment(.center)
+            }
+            if isSpeakable {
+                SpeakerButton(text: value, language: lang) { audioPlayCount += 1 }
+            }
         }
         .padding(.horizontal)
     }
 
     @ViewBuilder
     private func answerView(_ progress: CardProgress) -> some View {
-        let (label, value) = answerContent(progress)
+        let (label, value, isSpeakable, lang) = answerSpeakableContent(progress)
         VStack(spacing: 8) {
             Text(label)
                 .font(.caption)
@@ -97,29 +110,57 @@ struct StudySessionView: View {
             Text(value)
                 .font(.title)
                 .multilineTextAlignment(.center)
+            if isSpeakable {
+                SpeakerButton(text: value, language: lang) { audioPlayCount += 1 }
+            }
         }
         .padding(.horizontal)
     }
 
-    private func promptContent(_ progress: CardProgress) -> (String, String) {
+    private func promptSpeakableContent(_ progress: CardProgress) -> (String, String, Bool, Language) {
         let card = cardLookup[progress.cardId]
         let deck = card.flatMap { deckLookup[$0.deckId] }
         switch progress.direction {
         case .sourceToTarget:
-            return (deck?.sourceField ?? "", card?.sourceValue ?? "")
+            return (deck?.sourceField ?? "", card?.sourceValue ?? "", deck?.sourceSpeakable ?? false, deck?.sourceLanguage ?? .english)
         case .targetToSource:
-            return (deck?.targetField ?? "", card?.targetValue ?? "")
+            return (deck?.targetField ?? "", card?.targetValue ?? "", deck?.targetSpeakable ?? false, deck?.targetLanguage ?? .english)
         }
     }
 
-    private func answerContent(_ progress: CardProgress) -> (String, String) {
+    private func answerSpeakableContent(_ progress: CardProgress) -> (String, String, Bool, Language) {
         let card = cardLookup[progress.cardId]
         let deck = card.flatMap { deckLookup[$0.deckId] }
         switch progress.direction {
         case .sourceToTarget:
-            return (deck?.targetField ?? "", card?.targetValue ?? "")
+            return (deck?.targetField ?? "", card?.targetValue ?? "", deck?.targetSpeakable ?? false, deck?.targetLanguage ?? .english)
         case .targetToSource:
-            return (deck?.sourceField ?? "", card?.sourceValue ?? "")
+            return (deck?.sourceField ?? "", card?.sourceValue ?? "", deck?.sourceSpeakable ?? false, deck?.sourceLanguage ?? .english)
+        }
+    }
+
+    private func autoPlayPromptIfNeeded(_ progress: CardProgress) {
+        guard studyMode == .listeningWithText || studyMode == .listeningWithoutText else { return }
+        let (_, text, isSpeakable, lang) = promptSpeakableContent(progress)
+        guard isSpeakable else { return }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: lang.bcp47Locale)
+        audioPlayCount += 1
+        AVSpeechSynthesizer().speak(utterance)
+    }
+
+    private func autoPlayAnswerIfNeeded(_ progress: CardProgress) {
+        guard studyMode == .listeningWithText || studyMode == .listeningWithoutText else { return }
+        let (_, text, isSpeakable, lang) = answerSpeakableContent(progress)
+        guard isSpeakable else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            let utterance = AVSpeechUtterance(string: text)
+            utterance.voice = AVSpeechSynthesisVoice(language: lang.bcp47Locale)
+            await MainActor.run {
+                audioPlayCount += 1
+                AVSpeechSynthesizer().speak(utterance)
+            }
         }
     }
 
@@ -163,8 +204,9 @@ struct StudySessionView: View {
             var event = ReviewEvent(
                 cardId: progress.cardId,
                 rating: Int(rating.rawValue),
-                studyMode: "reading",
+                studyMode: studyMode,
                 direction: progress.direction,
+                audioPlayCount: audioPlayCount,
                 timeToRevealSeconds: timeToReveal
             )
             try eventRepo.insert(&event)
@@ -178,6 +220,7 @@ struct StudySessionView: View {
     private func advanceToNext() {
         isRevealed = false
         revealTime = nil
+        audioPlayCount = 0
         if currentIndex + 1 < queue.count {
             currentIndex += 1
         } else {
