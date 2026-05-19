@@ -18,6 +18,32 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { execSync } from "node:child_process";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// ---------------------------------------------------------------------------
+// Credentials — extract OAuth token from macOS Keychain and write to a temp
+// file that Docker can mount. On Linux inside Docker there is no Keychain, so
+// Claude Code falls back to reading ~/.claude/.credentials.json.
+// ---------------------------------------------------------------------------
+
+const credDir = join(tmpdir(), "sandcastle-claude-creds");
+mkdirSync(credDir, { recursive: true });
+const credFile = join(credDir, ".credentials.json");
+
+try {
+  const raw = execSync(
+    "security find-generic-password -s 'Claude Code-credentials' -w",
+    { encoding: "utf8" }
+  ).trim();
+  writeFileSync(credFile, raw, { mode: 0o600 });
+} catch (e) {
+  throw new Error(
+    "Could not read Claude Code credentials from Keychain. Make sure you are logged in (`claude /login`)."
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -31,6 +57,16 @@ const hooks = {};
 
 const copyToWorktree: string[] = [];
 
+const sandbox = () =>
+  docker({
+    mounts: [
+      // Host ~/.claude (settings, plugins, etc.) minus credentials
+      { hostPath: "~/.claude", sandboxPath: "/home/agent/.claude" },
+      // Credentials extracted from Keychain, placed where Claude Code expects them
+      { hostPath: credFile, sandboxPath: "/home/agent/.claude/.credentials.json" },
+    ],
+  });
+
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
@@ -40,21 +76,11 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
   // -------------------------------------------------------------------------
   // Phase 1: Implement
-  //
-  // A sonnet agent picks the next open GitHub issue, creates a branch, writes
-  // the implementation (using RGR: Red → Green → Repeat → Refactor), and
-  // commits the result.
-  //
-  // The agent signals completion via <promise>COMPLETE</promise> when done.
-  // The result contains the branch name the agent worked on.
   // -------------------------------------------------------------------------
   const implement = await sandcastle.run({
     hooks,
     copyToWorktree,
-    sandbox: docker({
-      // Mount host Claude credentials so the agent can authenticate via OAuth
-      mounts: [{ hostPath: "~/.claude", sandboxPath: "/home/agent/.claude" }],
-    }),
+    sandbox: sandbox(),
     branchStrategy: { type: "merge-to-head" },
     name: "implementer",
     maxIterations: 100,
@@ -62,7 +88,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     promptFile: "./.sandcastle/implement-prompt.md",
   });
 
-  // Extract the branch the agent worked on so the reviewer can target it.
   const branch = implement.branch;
 
   if (!implement.commits.length) {
@@ -75,24 +100,16 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
   // -------------------------------------------------------------------------
   // Phase 2: Review
-  //
-  // A second sonnet agent reviews the diff of the branch produced by Phase 1.
-  // It uses the {{BRANCH}} prompt argument to inspect the right branch, and
-  // either approves or makes corrections directly on the branch.
   // -------------------------------------------------------------------------
   await sandcastle.run({
     hooks,
     copyToWorktree,
-    sandbox: docker({
-      mounts: [{ hostPath: "~/.claude", sandboxPath: "/home/agent/.claude" }],
-    }),
+    sandbox: sandbox(),
     branchStrategy: { type: "head" },
     name: "reviewer",
     maxIterations: 1,
     agent: sandcastle.claudeCode("claude-opus-4-6"),
     promptFile: "./.sandcastle/review-prompt.md",
-    // Prompt arguments substitute {{BRANCH}} in review-prompt.md before the
-    // agent sees the prompt.
     promptArgs: {
       BRANCH: branch,
     },

@@ -46,6 +46,6 @@ Pick the highest-priority open issue that is not blocked by another open issue.
 
 # Done
 
-When all actionable issues are complete (or you are blocked on all remaining ones), output the completion signal:
+After completing (or being blocked on) **one issue**, output the completion signal immediately — do not pick up another issue:
 
 <promise>COMPLETE</promise>
