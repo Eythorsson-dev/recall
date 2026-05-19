@@ -17,6 +17,7 @@
 		A10000010000000000000023 /* StudySessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000023 /* StudySessionView.swift */; };
 		A10000010000000000000024 /* DeckCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000024 /* DeckCreationView.swift */; };
 		A10000010000000000000025 /* DeckDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000025 /* DeckDetailView.swift */; };
+		A10000010000000000000026 /* SpeakerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* SpeakerButton.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		A20000010000000000000023 /* StudySessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySessionView.swift; sourceTree = "<group>"; };
 		A20000010000000000000024 /* DeckCreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckCreationView.swift; sourceTree = "<group>"; };
 		A20000010000000000000025 /* DeckDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckDetailView.swift; sourceTree = "<group>"; };
+		A20000010000000000000026 /* SpeakerButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +82,7 @@
 				A20000010000000000000023 /* StudySessionView.swift */,
 				A20000010000000000000024 /* DeckCreationView.swift */,
 				A20000010000000000000025 /* DeckDetailView.swift */,
+				A20000010000000000000026 /* SpeakerButton.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -167,6 +170,7 @@
 				A10000010000000000000023 /* StudySessionView.swift in Sources */,
 				A10000010000000000000024 /* DeckCreationView.swift in Sources */,
 				A10000010000000000000025 /* DeckDetailView.swift in Sources */,
+				A10000010000000000000026 /* SpeakerButton.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
