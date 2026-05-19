@@ -1,44 +1,22 @@
-# Dart/Flutter
-.dart_tool/
-.packages
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
 build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+
 # IDE
 .idea/
 *.iml
 .vscode/
-
-# macOS
-.DS_Store
-**/macos/Flutter/ephemeral/
-**/macos/Pods/
-
-# iOS
-**/ios/Pods/
-**/ios/.symlinks/
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/app.flx
-**/ios/Flutter/app.zip
-**/ios/Flutter/flutter_assets/
-**/ios/Flutter/flutter_export_environment.sh
-
-# Android
-**/android/.gradle
-**/android/captures/
-**/android/gradlew
-**/android/gradlew.bat
-**/android/local.properties
-**/android/**/GeneratedPluginRegistrant.java
-
-# Windows
-**/windows/flutter/ephemeral/
-
-# Linux
-**/linux/flutter/ephemeral/
-
-# Generated
-*.freezed.dart
 
 # Claude Code
 .claude/projects/
