@@ -262,6 +262,14 @@ public final class DatabaseManager: Sendable {
             try db.execute(sql: "PRAGMA foreign_keys = ON")
         }
 
+        migrator.registerMigration("v7_auto_translation") { db in
+            try db.alter(table: "card") { t in
+                // Existing rows default to true — their targetValue was manually typed before this feature.
+                // New rows inserted via the Swift model default to false (set by Card.init).
+                t.add(column: "targetValueIsUserModified", .boolean).notNull().defaults(to: true)
+            }
+        }
+
         try migrator.migrate(writer)
     }
 }

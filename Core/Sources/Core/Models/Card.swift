@@ -6,6 +6,7 @@ public struct Card: Codable, Identifiable, Sendable {
     public var deckId: Int64
     public var sourceValue: String
     public var targetValue: String
+    public var targetValueIsUserModified: Bool
 
     public var createdAt: Date
     public var updatedAt: Date
@@ -16,6 +17,7 @@ public struct Card: Codable, Identifiable, Sendable {
         deckId: Int64,
         sourceValue: String = "",
         targetValue: String = "",
+        targetValueIsUserModified: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -24,6 +26,7 @@ public struct Card: Codable, Identifiable, Sendable {
         self.deckId = deckId
         self.sourceValue = sourceValue
         self.targetValue = targetValue
+        self.targetValueIsUserModified = targetValueIsUserModified
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
