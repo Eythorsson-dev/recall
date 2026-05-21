@@ -8,6 +8,7 @@ struct StudySetupView: View {
 
     @State private var selectedDeckIds: Set<Int64> = []
     @State private var direction: StudyDirection? = nil
+    @State private var studyMode: StudyMode = .reading
     @State private var dueCount = 0
     @State private var totalCount = 0
     @State private var isStudying = false
@@ -18,6 +19,7 @@ struct StudySetupView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     deckSection
                     directionSection
+                    studyModeSection
                     statsSection
                     beginButton
                 }
@@ -35,7 +37,8 @@ struct StudySetupView: View {
                     database: database,
                     deckLookup: deckLookup,
                     selectedDeckIds: Array(selectedDeckIds),
-                    direction: direction
+                    direction: direction,
+                    studyMode: studyMode
                 )
             }
             .onChange(of: selectedDeckIds) { loadDueCount() }
@@ -67,6 +70,15 @@ struct StudySetupView: View {
             sectionLabel("Direction")
                 .padding(.top, 30)
             DirectionPicker(selection: $direction)
+                .padding(.horizontal, 20)
+        }
+    }
+
+    private var studyModeSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionLabel("Study Mode")
+                .padding(.top, 30)
+            StudyModePicker(selection: $studyMode)
                 .padding(.horizontal, 20)
         }
     }
@@ -206,6 +218,62 @@ struct StudySetupView: View {
         let ids = Array(selectedDeckIds)
         dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction)) ?? 0
         totalCount = (try? progressRepo.fetchCardCount(deckIds: ids)) ?? 0
+    }
+}
+
+// MARK: - Study Mode Picker
+
+private struct StudyModePicker: View {
+    @Binding var selection: StudyMode
+
+    private struct Option: Identifiable {
+        let id: Int
+        let label: String
+        let value: StudyMode
+    }
+
+    private let options: [Option] = [
+        Option(id: 0, label: "Reading",   value: .reading),
+        Option(id: 1, label: "With Text", value: .listeningWithText),
+        Option(id: 2, label: "No Text",   value: .listeningWithoutText)
+    ]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options) { option in
+                modeButton(option)
+            }
+        }
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func modeButton(_ option: Option) -> some View {
+        let isActive = selection == option.value
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                selection = option.value
+            }
+        } label: {
+            Text(option.label)
+                .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                .foregroundStyle(isActive ? .white : Color.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.vertical, 13)
+                .frame(maxWidth: .infinity)
+                .background(
+                    Group {
+                        if isActive {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.accentColor)
+                                .padding(3)
+                        }
+                    }
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 

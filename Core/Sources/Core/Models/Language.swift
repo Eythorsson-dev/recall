@@ -10,4 +10,12 @@ public enum Language: String, Codable, CaseIterable, Sendable {
         case .ukrainian: return "Ukrainian"
         }
     }
+
+    public var bcp47Locale: String {
+        switch self {
+        case .english: return "en-US"
+        case .norwegian: return "nb-NO"
+        case .ukrainian: return "uk-UA"
+        }
+    }
 }
