@@ -4,6 +4,7 @@ xcuserdata/
 *.xccheckout
 DerivedData/
 build/
+build-device/
 
 # Swift Package Manager
 .build/
