@@ -19,6 +19,7 @@ struct StudySessionView: View {
     @State private var audioPlayCount = 0
 
     private let scheduler = StudyScheduler()
+    private static let synthesizer = AVSpeechSynthesizer()
 
     var body: some View {
         Group {
@@ -57,10 +58,9 @@ struct StudySessionView: View {
 
             if isRevealed {
                 ratingButtons(progress)
-            } else {
+            } else if studyMode != .listeningWithoutText {
                 Button {
-                    revealTime = Date()
-                    isRevealed = true
+                    reveal()
                 } label: {
                     Text("Show Answer")
                         .font(.headline)
@@ -74,11 +74,22 @@ struct StudySessionView: View {
             }
         }
         .padding(.bottom)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if studyMode == .listeningWithoutText && !isRevealed {
+                reveal()
+            }
+        }
         .onChange(of: currentIndex) { autoPlayPromptIfNeeded(progress) }
         .onAppear { autoPlayPromptIfNeeded(progress) }
         .onChange(of: isRevealed) { newValue in
             if newValue { autoPlayAnswerIfNeeded(progress) }
         }
+    }
+
+    private func reveal() {
+        revealTime = Date()
+        isRevealed = true
     }
 
     @ViewBuilder
@@ -88,7 +99,7 @@ struct StudySessionView: View {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if studyMode != .listeningWithoutText {
+            if studyMode != .listeningWithoutText || isRevealed {
                 Text(value)
                     .font(.largeTitle)
                     .multilineTextAlignment(.center)
@@ -146,7 +157,7 @@ struct StudySessionView: View {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: lang.bcp47Locale)
         audioPlayCount += 1
-        AVSpeechSynthesizer().speak(utterance)
+        Self.synthesizer.speak(utterance)
     }
 
     private func autoPlayAnswerIfNeeded(_ progress: CardProgress) {
@@ -159,7 +170,7 @@ struct StudySessionView: View {
             utterance.voice = AVSpeechSynthesisVoice(language: lang.bcp47Locale)
             await MainActor.run {
                 audioPlayCount += 1
-                AVSpeechSynthesizer().speak(utterance)
+                Self.synthesizer.speak(utterance)
             }
         }
     }
