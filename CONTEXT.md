@@ -72,10 +72,13 @@ A SQLite database on each device managed via GRDB. The authoritative source for 
 ### Card creation
 
 **Auto-Translation**:
-Automatic population of a target-language Field from a source-language Field using an AI translation service. Fires after a short debounce when the source Field changes. Generated content is rendered visually distinct (muted + AI badge) until confirmed.
+Automatic population of a target-language Field from a source-language Field using an AI translation service. Fires when the user leaves (blurs) the source Field. While the request is in-flight, the target Field shows a loading indicator and Save is disabled. If the request fails, an inline error appears below the target Field ("Translation failed — enter manually") and Save re-enables. The target Field is rendered muted whenever it holds an auto-generated value that the user has not manually edited (i.e. the User-Modified Flag is not set). This muted state persists after saving — reopening the card shows the same muted rendering until the user edits the value. No separate AI badge.
+_Avoid_: confirm step, accept button
 
 **User-Modified Flag**:
-A per-Field marker indicating the user has manually edited an auto-generated value. When set, the system never silently overwrites the field — instead it shows a non-blocking inline prompt if the source field changes: "Source changed — [Keep my translation] [Regenerate]".
+A per-Field boolean persisted on the `Card` model (`targetValueIsUserModified`). Set to `true` whenever the user directly edits the target Field; reset to `false` when the user clears the target Field to empty. Controls both visual rendering (muted when `false`, normal when `true`) and overwrite protection: when `true`, auto-translation never fires — no prompt, no silent overwrite. When `false`, auto-translation fires on source Field blur (creation and editing).
+_Migration_: existing rows default to `true` — they were manually typed before auto-translation existed and must not render as muted. New rows default to `false`.
+_Avoid_: "Source changed" prompt — if the user owns the field, the system never touches it.
 
 ### Organisation
 

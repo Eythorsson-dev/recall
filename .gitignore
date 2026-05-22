@@ -18,5 +18,8 @@ Package.resolved
 *.iml
 .vscode/
 
+# Secrets
+Secrets.xcconfig
+
 # Claude Code
 .claude/projects/
