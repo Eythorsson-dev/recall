@@ -24,6 +24,7 @@ struct SpeakerButton: View {
     }
 
     private func speak() {
+        guard !Self.synthesizer.isSpeaking else { return }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: language.bcp47Locale)
         isPlaying = true
