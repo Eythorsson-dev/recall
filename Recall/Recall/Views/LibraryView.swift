@@ -3,6 +3,7 @@ import Core
 
 struct LibraryView: View {
     let database: DatabaseManager
+    let translationService: TranslationService?
     @State private var decks: [Deck] = []
     @State private var showingCreateDeck = false
     @State private var showingStudySetup = false
@@ -16,7 +17,7 @@ struct LibraryView: View {
                     List {
                         ForEach(decks) { deck in
                             NavigationLink {
-                                DeckDetailView(database: database, deck: deck)
+                                DeckDetailView(database: database, deck: deck, translationService: translationService)
                             } label: {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(deck.name)

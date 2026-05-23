@@ -1,21 +1,32 @@
 import SwiftUI
 import Core
 
-struct CardCreationView: View {
+struct CardEditView: View {
     let database: DatabaseManager
     let deck: Deck
     let translationService: TranslationService?
+    let card: Card
     @Environment(\.dismiss) private var dismiss
 
-    @State private var sourceValue = ""
-    @State private var targetValue = ""
-    @State private var targetValueIsUserModified = false
+    @State private var sourceValue: String
+    @State private var targetValue: String
+    @State private var targetValueIsUserModified: Bool
     @State private var isTranslating = false
     @State private var translationFailed = false
 
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable { case source, target }
+
+    init(database: DatabaseManager, deck: Deck, translationService: TranslationService?, card: Card) {
+        self.database = database
+        self.deck = deck
+        self.translationService = translationService
+        self.card = card
+        _sourceValue = State(initialValue: card.sourceValue)
+        _targetValue = State(initialValue: card.targetValue)
+        _targetValueIsUserModified = State(initialValue: card.targetValueIsUserModified)
+    }
 
     var body: some View {
         NavigationStack {
@@ -41,7 +52,7 @@ struct CardCreationView: View {
                     }
                 }
             }
-            .navigationTitle("New Card")
+            .navigationTitle("Edit Card")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -105,15 +116,12 @@ struct CardCreationView: View {
     }
 
     private func saveCard() {
-        guard let deckId = deck.id else { return }
         let repo = CardRepository(database: database)
-        var card = Card(
-            deckId: deckId,
-            sourceValue: sourceValue,
-            targetValue: targetValue,
-            targetValueIsUserModified: targetValueIsUserModified
-        )
-        try? repo.insert(&card)
+        var updated = card
+        updated.sourceValue = sourceValue
+        updated.targetValue = targetValue
+        updated.targetValueIsUserModified = targetValueIsUserModified
+        try? repo.update(&updated)
         dismiss()
     }
 }

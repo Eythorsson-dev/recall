@@ -18,6 +18,7 @@
 		A10000010000000000000024 /* DeckCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000024 /* DeckCreationView.swift */; };
 		A10000010000000000000025 /* DeckDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000025 /* DeckDetailView.swift */; };
 		A10000010000000000000026 /* SpeakerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* SpeakerButton.swift */; };
+		A10000010000000000000027 /* CardEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000027 /* CardEditView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 		A20000010000000000000024 /* DeckCreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckCreationView.swift; sourceTree = "<group>"; };
 		A20000010000000000000025 /* DeckDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckDetailView.swift; sourceTree = "<group>"; };
 		A20000010000000000000026 /* SpeakerButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerButton.swift; sourceTree = "<group>"; };
+		A20000010000000000000027 /* CardEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEditView.swift; sourceTree = "<group>"; };
 		A20000010000000000000030 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		A20000010000000000000031 /* Secrets.xcconfig.template */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig.template; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -87,6 +89,7 @@
 				A20000010000000000000024 /* DeckCreationView.swift */,
 				A20000010000000000000025 /* DeckDetailView.swift */,
 				A20000010000000000000026 /* SpeakerButton.swift */,
+				A20000010000000000000027 /* CardEditView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -175,6 +178,7 @@
 				A10000010000000000000024 /* DeckCreationView.swift in Sources */,
 				A10000010000000000000025 /* DeckDetailView.swift in Sources */,
 				A10000010000000000000026 /* SpeakerButton.swift in Sources */,
+				A10000010000000000000027 /* CardEditView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

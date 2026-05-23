@@ -10,7 +10,7 @@ struct RecallApp: App {
     var body: some Scene {
         WindowGroup {
             if let db = databaseManager {
-                LibraryView(database: db)
+                LibraryView(database: db, translationService: translationService)
             } else if let error = databaseError {
                 Text("Database error: \(error.localizedDescription)")
             } else {
