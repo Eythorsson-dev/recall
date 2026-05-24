@@ -45,6 +45,7 @@ struct DeckDetailView: View {
     @State private var progressByCard: [Int64: CardProgress] = [:]
     @State private var showingCreateCard = false
     @State private var editingCard: Card?
+    @State private var statsCard: Card?
 
     private var dueCount: Int { progressByCard.values.filter { $0.isDue }.count }
     private var newCount: Int { progressByCard.values.filter { $0.state == .new }.count }
@@ -64,7 +65,7 @@ struct DeckDetailView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
                         .listRowSeparator(.hidden)
-                        .onTapGesture { editingCard = card }
+                        .onTapGesture { statsCard = card }
                 }
                 .onDelete(perform: deleteCards)
 
@@ -105,6 +106,10 @@ struct DeckDetailView: View {
         }
         .sheet(item: $editingCard) { card in
             CardEditView(database: database, deck: deck, translationService: translationService, card: card)
+                .onDisappear { loadCards() }
+        }
+        .sheet(item: $statsCard) { card in
+            CardStatsView(database: database, deck: deck, card: card, translationService: translationService)
                 .onDisappear { loadCards() }
         }
         .onAppear { loadCards() }
