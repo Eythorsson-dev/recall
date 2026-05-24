@@ -24,3 +24,4 @@ Secrets.xcconfig
 
 # Claude Code
 .claude/projects/
+.claude/worktrees/
