@@ -20,6 +20,7 @@
 		A10000010000000000000026 /* SpeakerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* SpeakerButton.swift */; };
 		A10000010000000000000027 /* CardEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000027 /* CardEditView.swift */; };
 		A10000010000000000000028 /* CardStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000028 /* CardStatsView.swift */; };
+		A10000010000000000000029 /* CardEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000029 /* CardEditorView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +37,7 @@
 		A20000010000000000000026 /* SpeakerButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerButton.swift; sourceTree = "<group>"; };
 		A20000010000000000000027 /* CardEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEditView.swift; sourceTree = "<group>"; };
 		A20000010000000000000028 /* CardStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardStatsView.swift; sourceTree = "<group>"; };
+		A20000010000000000000029 /* CardEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEditorView.swift; sourceTree = "<group>"; };
 		A20000010000000000000030 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		A20000010000000000000031 /* Secrets.xcconfig.template */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig.template; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -93,6 +95,7 @@
 				A20000010000000000000026 /* SpeakerButton.swift */,
 				A20000010000000000000027 /* CardEditView.swift */,
 				A20000010000000000000028 /* CardStatsView.swift */,
+				A20000010000000000000029 /* CardEditorView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -183,6 +186,7 @@
 				A10000010000000000000026 /* SpeakerButton.swift in Sources */,
 				A10000010000000000000027 /* CardEditView.swift in Sources */,
 				A10000010000000000000028 /* CardStatsView.swift in Sources */,
+				A10000010000000000000029 /* CardEditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

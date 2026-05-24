@@ -72,7 +72,7 @@ struct StudySetupView: View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel("Study Mode")
                 .padding(.top, 30)
-            StudyModePicker(selection: $studyMode)
+            StudyModeToggles(selection: $studyMode)
                 .padding(.horizontal, 20)
         }
     }
@@ -215,59 +215,103 @@ struct StudySetupView: View {
     }
 }
 
-// MARK: - Study Mode Picker
+// MARK: - Study Mode Toggles
+//
+// The three valid StudyModes are two independent axes (show text, auto-play
+// audio) with one invalid combination (both off — nothing to study). We
+// expose the two axes as toggles and derive the StudyMode, auto-flipping the
+// other toggle on if the user tries to turn off the last one.
 
-private struct StudyModePicker: View {
+private struct StudyModeToggles: View {
     @Binding var selection: StudyMode
 
-    private struct Option: Identifiable {
-        let id: Int
-        let label: String
-        let value: StudyMode
+    private var showText: Bool { selection != .listeningWithoutText }
+    private var autoPlayAudio: Bool {
+        selection == .listeningWithText || selection == .listeningWithoutText
     }
 
-    private let options: [Option] = [
-        Option(id: 0, label: "Reading",   value: .reading),
-        Option(id: 1, label: "With Text", value: .listeningWithText),
-        Option(id: 2, label: "No Text",   value: .listeningWithoutText)
-    ]
+    private func setShowText(_ newValue: Bool) {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            selection = newValue
+                ? (autoPlayAudio ? .listeningWithText : .reading)
+                : .listeningWithoutText
+        }
+    }
+
+    private func setAutoPlayAudio(_ newValue: Bool) {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            selection = newValue
+                ? (showText ? .listeningWithText : .listeningWithoutText)
+                : .reading
+        }
+    }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(options) { option in
-                modeButton(option)
-            }
+        VStack(spacing: 0) {
+            toggleRow(
+                icon: "textformat",
+                title: "Show text",
+                subtitle: "Display each card's prompt as you recall.",
+                isOn: showText,
+                onChange: setShowText
+            )
+
+            Rectangle()
+                .fill(Color.primary.opacity(0.06))
+                .frame(height: 1)
+                .padding(.leading, 66)
+
+            toggleRow(
+                icon: "speaker.wave.2.fill",
+                title: "Auto-play audio",
+                subtitle: "Speak each prompt aloud the moment it appears.",
+                isOn: autoPlayAudio,
+                onChange: setAutoPlayAudio
+            )
         }
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     @ViewBuilder
-    private func modeButton(_ option: Option) -> some View {
-        let isActive = selection == option.value
-        Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                selection = option.value
+    private func toggleRow(
+        icon: String,
+        title: String,
+        subtitle: String,
+        isOn: Bool,
+        onChange: @escaping (Bool) -> Void
+    ) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(isOn ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.10))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                    .contentTransition(.symbolEffect(.replace))
             }
-        } label: {
-            Text(option.label)
-                .font(.system(size: 13, weight: isActive ? .semibold : .regular))
-                .foregroundStyle(isActive ? .white : Color.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .padding(.vertical, 13)
-                .frame(maxWidth: .infinity)
-                .background(
-                    Group {
-                        if isActive {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.accentColor)
-                                .padding(3)
-                        }
-                    }
-                )
+            .animation(.easeInOut(duration: 0.18), value: isOn)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+
+            Toggle("", isOn: Binding(get: { isOn }, set: onChange))
+                .labelsHidden()
+                .tint(.accentColor)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
     }
 }
 

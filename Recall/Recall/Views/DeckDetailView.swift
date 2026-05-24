@@ -39,13 +39,21 @@ private extension CardProgress {
 
 struct DeckDetailView: View {
     let database: DatabaseManager
-    let deck: Deck
     let translationService: TranslationService?
+    @State private var deck: Deck
     @State private var cards: [Card] = []
     @State private var progressByCard: [Int64: CardProgress] = [:]
     @State private var showingCreateCard = false
     @State private var editingCard: Card?
     @State private var statsCard: Card?
+    @State private var showingRename = false
+    @State private var renameDraft = ""
+
+    init(database: DatabaseManager, deck: Deck, translationService: TranslationService?) {
+        self.database = database
+        self.translationService = translationService
+        _deck = State(initialValue: deck)
+    }
 
     private var dueCount: Int { progressByCard.values.filter { $0.isDue }.count }
     private var newCount: Int { progressByCard.values.filter { $0.state == .new }.count }
@@ -99,6 +107,18 @@ struct DeckDetailView: View {
                     Image(systemName: "plus").fontWeight(.semibold)
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        renameDraft = deck.name
+                        showingRename = true
+                    } label: {
+                        Label("Rename Deck", systemImage: "pencil")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
         }
         .sheet(isPresented: $showingCreateCard) {
             CardCreationView(database: database, deck: deck, translationService: translationService)
@@ -112,7 +132,24 @@ struct DeckDetailView: View {
             CardStatsView(database: database, deck: deck, card: card, translationService: translationService)
                 .onDisappear { loadCards() }
         }
+        .alert("Rename Deck", isPresented: $showingRename) {
+            TextField("Deck name", text: $renameDraft)
+                .autocorrectionDisabled()
+            Button("Cancel", role: .cancel) {}
+            Button("Save") { renameDeck() }
+                .disabled(renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
         .onAppear { loadCards() }
+    }
+
+    private func renameDeck() {
+        let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != deck.name else { return }
+        var updated = deck
+        updated.name = trimmed
+        let repo = DeckRepository(database: database)
+        try? repo.update(&updated)
+        deck = updated
     }
 
     private var statsRow: some View {
