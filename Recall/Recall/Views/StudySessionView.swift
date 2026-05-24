@@ -154,6 +154,7 @@ struct StudySessionView: View {
         guard studyMode == .listeningWithText || studyMode == .listeningWithoutText else { return }
         let (_, text, isSpeakable, lang) = promptSpeakableContent(progress)
         guard isSpeakable else { return }
+        SpeechAudioSession.activate()
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: lang.bcp47Locale)
         audioPlayCount += 1
@@ -164,6 +165,7 @@ struct StudySessionView: View {
         guard studyMode == .listeningWithText || studyMode == .listeningWithoutText else { return }
         let (_, text, isSpeakable, lang) = answerSpeakableContent(progress)
         guard isSpeakable else { return }
+        SpeechAudioSession.activate()
         Task {
             try? await Task.sleep(for: .milliseconds(500))
             let utterance = AVSpeechUtterance(string: text)

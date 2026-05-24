@@ -25,6 +25,7 @@ struct SpeakerButton: View {
 
     private func speak() {
         guard !Self.synthesizer.isSpeaking else { return }
+        SpeechAudioSession.activate()
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: language.bcp47Locale)
         isPlaying = true
@@ -36,5 +37,21 @@ struct SpeakerButton: View {
             try? await Task.sleep(for: .seconds(duration))
             await MainActor.run { isPlaying = false }
         }
+    }
+}
+
+enum SpeechAudioSession {
+    private static var didActivate = false
+
+    static func activate() {
+        // Default session category (.soloAmbient) honors the ringer switch —
+        // TTS goes silent when the phone is on silent. Switch to .playback so
+        // speech plays regardless, ducking other audio while we speak.
+        // Idempotent: activated lazily on the first speak() call.
+        guard !didActivate else { return }
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
+        try? session.setActive(true, options: [])
+        didActivate = true
     }
 }

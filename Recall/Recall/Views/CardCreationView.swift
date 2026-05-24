@@ -5,115 +5,13 @@ struct CardCreationView: View {
     let database: DatabaseManager
     let deck: Deck
     let translationService: TranslationService?
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var sourceValue = ""
-    @State private var targetValue = ""
-    @State private var targetValueIsUserModified = false
-    @State private var isTranslating = false
-    @State private var translationFailed = false
-
-    @FocusState private var focusedField: Field?
-
-    private enum Field: Hashable { case source, target }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField(deck.sourceField, text: $sourceValue)
-                        .focused($focusedField, equals: .source)
-                    HStack {
-                        TextField(deck.targetField, text: $targetValue)
-                            .focused($focusedField, equals: .target)
-                            .foregroundStyle(isTargetMuted ? Color.secondary : Color.primary)
-                        if isTranslating {
-                            ProgressView()
-                                .controlSize(.small)
-                        }
-                    }
-                } header: {
-                    Text("\(deck.sourceField) → \(deck.targetField)")
-                } footer: {
-                    if translationFailed {
-                        Text("Translation failed — enter manually")
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle("New Card")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveCard() }
-                        .disabled(!isValid)
-                }
-            }
-            .onChange(of: focusedField) { oldValue, _ in
-                if oldValue == .source {
-                    triggerTranslation()
-                }
-            }
-            .onChange(of: targetValue) { _, newValue in
-                if newValue.isEmpty {
-                    targetValueIsUserModified = false
-                } else if focusedField == .target {
-                    targetValueIsUserModified = true
-                    translationFailed = false
-                }
-            }
-        }
-    }
-
-    private var isTargetMuted: Bool {
-        !targetValueIsUserModified && !targetValue.isEmpty
-    }
-
-    private var isValid: Bool {
-        !sourceValue.isEmpty && !targetValue.isEmpty && !isTranslating
-    }
-
-    private func triggerTranslation() {
-        guard !targetValueIsUserModified,
-              !sourceValue.isEmpty,
-              let service = translationService else { return }
-
-        isTranslating = true
-        translationFailed = false
-
-        Task {
-            do {
-                let result = try await service.translate(
-                    sourceValue,
-                    from: deck.sourceLanguage,
-                    to: deck.targetLanguage
-                )
-                guard !targetValueIsUserModified else {
-                    isTranslating = false
-                    return
-                }
-                targetValue = result
-                targetValueIsUserModified = false
-            } catch {
-                translationFailed = true
-            }
-            isTranslating = false
-        }
-    }
-
-    private func saveCard() {
-        guard let deckId = deck.id else { return }
-        let repo = CardRepository(database: database)
-        var card = Card(
-            deckId: deckId,
-            sourceValue: sourceValue,
-            targetValue: targetValue,
-            targetValueIsUserModified: targetValueIsUserModified
+        CardEditorView(
+            mode: .create,
+            database: database,
+            deck: deck,
+            translationService: translationService
         )
-        try? repo.insert(&card)
-        dismiss()
     }
 }
