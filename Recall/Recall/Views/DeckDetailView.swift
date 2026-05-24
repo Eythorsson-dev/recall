@@ -40,9 +40,11 @@ private extension CardProgress {
 struct DeckDetailView: View {
     let database: DatabaseManager
     let deck: Deck
+    let translationService: TranslationService?
     @State private var cards: [Card] = []
     @State private var progressByCard: [Int64: CardProgress] = [:]
     @State private var showingCreateCard = false
+    @State private var editingCard: Card?
 
     private var dueCount: Int { progressByCard.values.filter { $0.isDue }.count }
     private var newCount: Int { progressByCard.values.filter { $0.state == .new }.count }
@@ -62,6 +64,7 @@ struct DeckDetailView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
                         .listRowSeparator(.hidden)
+                        .onTapGesture { editingCard = card }
                 }
                 .onDelete(perform: deleteCards)
 
@@ -97,7 +100,11 @@ struct DeckDetailView: View {
             }
         }
         .sheet(isPresented: $showingCreateCard) {
-            CardCreationView(database: database, deck: deck)
+            CardCreationView(database: database, deck: deck, translationService: translationService)
+                .onDisappear { loadCards() }
+        }
+        .sheet(item: $editingCard) { card in
+            CardEditView(database: database, deck: deck, translationService: translationService, card: card)
                 .onDisappear { loadCards() }
         }
         .onAppear { loadCards() }
