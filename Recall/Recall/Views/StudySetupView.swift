@@ -14,39 +14,33 @@ struct StudySetupView: View {
     @State private var isStudying = false
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    deckSection
-                    directionSection
-                    studyModeSection
-                    statsSection
-                    beginButton
-                }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                deckSection
+                directionSection
+                studyModeSection
+                statsSection
+                beginButton
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Study Session")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-            .navigationDestination(isPresented: $isStudying) {
-                StudySessionView(
-                    database: database,
-                    deckLookup: deckLookup,
-                    selectedDeckIds: Array(selectedDeckIds),
-                    direction: direction,
-                    studyMode: studyMode
-                )
-            }
-            .onChange(of: selectedDeckIds) { loadDueCount() }
-            .onChange(of: direction) { loadDueCount() }
-            .onAppear {
-                selectedDeckIds = Set(decks.compactMap(\.id))
-                loadDueCount()
-            }
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Study Session")
+        .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(isPresented: $isStudying) {
+            StudySessionView(
+                database: database,
+                deckLookup: deckLookup,
+                selectedDeckIds: Array(selectedDeckIds),
+                direction: direction,
+                studyMode: studyMode,
+                onSessionEnded: { dismiss() }
+            )
+        }
+        .onChange(of: selectedDeckIds) { loadDueCount() }
+        .onChange(of: direction) { loadDueCount() }
+        .onAppear {
+            selectedDeckIds = Set(decks.compactMap(\.id))
+            loadDueCount()
         }
     }
 

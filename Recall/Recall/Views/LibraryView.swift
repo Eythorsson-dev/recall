@@ -54,7 +54,9 @@ struct LibraryView: View {
                     .onDisappear { loadDecks() }
             }
             .sheet(isPresented: $showingStudySetup) {
-                StudySetupView(database: database, decks: decks)
+                NavigationStack {
+                    StudySetupView(database: database, decks: decks)
+                }
             }
             .onAppear { loadDecks() }
         }

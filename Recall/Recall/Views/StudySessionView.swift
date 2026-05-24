@@ -8,6 +8,7 @@ struct StudySessionView: View {
     let selectedDeckIds: [Int64]
     let direction: StudyDirection?
     let studyMode: StudyMode
+    let onSessionEnded: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var queue: [CardProgress] = []
@@ -33,7 +34,6 @@ struct StudySessionView: View {
         }
         .navigationTitle("Study (\(currentIndex + 1)/\(queue.count))")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(!sessionComplete)
         .onAppear { loadQueue() }
     }
 
@@ -248,7 +248,7 @@ struct StudySessionView: View {
                 .font(.title)
             Text("You reviewed \(queue.count) card\(queue.count == 1 ? "" : "s").")
                 .foregroundStyle(.secondary)
-            Button("Done") { dismiss() }
+            Button("Done") { onSessionEnded() }
                 .buttonStyle(.borderedProminent)
         }
     }
