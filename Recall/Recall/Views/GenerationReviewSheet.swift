@@ -10,9 +10,19 @@ struct SentencePair: Identifiable, Hashable {
 struct GenerationReviewSheet: View {
     let database: DatabaseManager
     let deck: Deck
+    let sentenceGenerator: SentenceGenerator?
 
     @Environment(\.dismiss) private var dismiss
     @State private var pending: [SentencePair] = []
+    @State private var phase: Phase = .idle
+    @State private var errorMessage: String?
+
+    private enum Phase {
+        case idle
+        case loading
+        case loaded
+        case failed
+    }
 
     var body: some View {
         NavigationStack {
@@ -35,15 +45,7 @@ struct GenerationReviewSheet: View {
                 }
                 .listStyle(.plain)
                 .background(Color(.systemGroupedBackground))
-                .overlay {
-                    if pending.isEmpty {
-                        ContentUnavailableView(
-                            "No Sentences",
-                            systemImage: "text.bubble",
-                            description: Text("All pending sentences were removed.")
-                        )
-                    }
-                }
+                .overlay { overlayContent }
 
                 acceptBar
             }
@@ -59,11 +61,37 @@ struct GenerationReviewSheet: View {
                     }
                 }
             }
-            .onAppear {
-                if pending.isEmpty {
-                    pending = fixtureSentences(for: deck.targetLanguage)
-                }
+            .task {
+                guard phase == .idle else { return }
+                await loadSentences()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var overlayContent: some View {
+        switch phase {
+        case .idle, .loading:
+            VStack(spacing: 12) {
+                ProgressView()
+                Text("Generating sentences…")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+        case .failed:
+            ContentUnavailableView(
+                "Couldn't Generate",
+                systemImage: "exclamationmark.triangle",
+                description: Text(errorMessage ?? "Something went wrong.")
+            )
+        case .loaded where pending.isEmpty:
+            ContentUnavailableView(
+                "No Sentences",
+                systemImage: "text.bubble",
+                description: Text("All pending sentences were removed.")
+            )
+        case .loaded:
+            EmptyView()
         }
     }
 
@@ -133,33 +161,21 @@ struct GenerationReviewSheet: View {
         }
         dismiss()
     }
-}
 
-private func fixtureSentences(for targetLanguage: Language) -> [SentencePair] {
-    switch targetLanguage {
-    case .ukrainian:
-        return [
-            SentencePair(source: "I love coffee in the morning.", target: "Я люблю каву вранці."),
-            SentencePair(source: "Where is the bathroom?", target: "Де туалет?"),
-            SentencePair(source: "Thank you very much.", target: "Дуже дякую."),
-            SentencePair(source: "How much does this cost?", target: "Скільки це коштує?"),
-            SentencePair(source: "I don't understand.", target: "Я не розумію.")
-        ]
-    case .norwegian:
-        return [
-            SentencePair(source: "I love coffee in the morning.", target: "Jeg elsker kaffe om morgenen."),
-            SentencePair(source: "Where is the bathroom?", target: "Hvor er toalettet?"),
-            SentencePair(source: "Thank you very much.", target: "Tusen takk."),
-            SentencePair(source: "How much does this cost?", target: "Hvor mye koster dette?"),
-            SentencePair(source: "I don't understand.", target: "Jeg forstår ikke.")
-        ]
-    case .english:
-        return [
-            SentencePair(source: "Доброго ранку!", target: "Good morning!"),
-            SentencePair(source: "Як справи?", target: "How are you?"),
-            SentencePair(source: "Я з України.", target: "I am from Ukraine."),
-            SentencePair(source: "До зустрічі завтра.", target: "See you tomorrow."),
-            SentencePair(source: "Я хочу їсти.", target: "I am hungry.")
-        ]
+    private func loadSentences() async {
+        phase = .loading
+        guard let generator = sentenceGenerator else {
+            errorMessage = "GEMINI_API_KEY is not configured. Add it to Secrets.xcconfig."
+            phase = .failed
+            return
+        }
+        do {
+            let result = try await generator.generate(deck: deck)
+            pending = result.sentences.map { SentencePair(source: $0.source, target: $0.target) }
+            phase = .loaded
+        } catch {
+            errorMessage = String(describing: error)
+            phase = .failed
+        }
     }
 }

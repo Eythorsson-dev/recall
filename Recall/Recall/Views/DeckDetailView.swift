@@ -40,6 +40,7 @@ private extension CardProgress {
 struct DeckDetailView: View {
     let database: DatabaseManager
     let translationService: TranslationService?
+    let sentenceGenerator: SentenceGenerator?
     @State private var deck: Deck
     @State private var cards: [Card] = []
     @State private var progressByCard: [Int64: CardProgress] = [:]
@@ -50,9 +51,10 @@ struct DeckDetailView: View {
     @State private var showingRename = false
     @State private var renameDraft = ""
 
-    init(database: DatabaseManager, deck: Deck, translationService: TranslationService?) {
+    init(database: DatabaseManager, deck: Deck, translationService: TranslationService?, sentenceGenerator: SentenceGenerator?) {
         self.database = database
         self.translationService = translationService
+        self.sentenceGenerator = sentenceGenerator
         _deck = State(initialValue: deck)
     }
 
@@ -124,7 +126,7 @@ struct DeckDetailView: View {
                 .onDisappear { loadCards() }
         }
         .sheet(isPresented: $showingGenerateSentences) {
-            GenerationReviewSheet(database: database, deck: deck)
+            GenerationReviewSheet(database: database, deck: deck, sentenceGenerator: sentenceGenerator)
                 .onDisappear { loadCards() }
         }
         .sheet(item: $editingCard) { card in
