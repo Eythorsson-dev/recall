@@ -29,9 +29,14 @@ struct RecallApp: App {
                !apiKey.isEmpty {
                 translationService = TranslationService(apiKey: apiKey)
             }
-            if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GeminiAPIKey") as? String,
+            if let db = databaseManager,
+               let apiKey = Bundle.main.object(forInfoDictionaryKey: "GeminiAPIKey") as? String,
                !apiKey.isEmpty {
-                sentenceGenerator = SentenceGenerator(client: GeminiClient(apiKey: apiKey))
+                sentenceGenerator = SentenceGenerator(
+                    client: GeminiClient(apiKey: apiKey),
+                    knownVocabulary: KnownVocabularyQuery(database: db),
+                    recentSentences: RecentSentencesQuery(database: db)
+                )
             }
         } catch {
             databaseError = error
