@@ -167,6 +167,54 @@ private func makeTestDeck(in db: DatabaseManager) throws -> Deck {
     #expect(sentences.isEmpty)
 }
 
+@Test func insertAllPersistsEveryCardAndCreatesProgressRows() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardRepository(database: db)
+    let progressRepo = CardProgressRepository(database: db)
+
+    var cards: [Card] = [
+        Card(deckId: deck.id!, sourceValue: "I love coffee", targetValue: "Я люблю каву", kind: .sentence),
+        Card(deckId: deck.id!, sourceValue: "coffee", targetValue: "кава", kind: .word),
+        Card(deckId: deck.id!, sourceValue: "morning", targetValue: "ранок", kind: .word),
+    ]
+    try repo.insertAll(&cards)
+
+    #expect(cards.allSatisfy { $0.id != nil })
+    let allInDeck = try repo.fetchAll(deckId: deck.id!)
+    #expect(allInDeck.count == 3)
+    // Each card should have both standard CardProgress rows.
+    for card in cards {
+        let progress = try progressRepo.fetchAll(forCard: card.id!)
+        #expect(progress.count == 2)
+        #expect(Set(progress.map(\.direction)) == [.sourceToTarget, .targetToSource])
+    }
+}
+
+@Test func insertAllRollsBackWhenAnyCardFails() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardRepository(database: db)
+
+    // The second card has a non-existent deckId — FK violation rolls back the
+    // whole batch. Neither card should land.
+    var cards: [Card] = [
+        Card(deckId: deck.id!, sourceValue: "first", targetValue: "перший", kind: .sentence),
+        Card(deckId: 99_999, sourceValue: "bad", targetValue: "погано", kind: .word),
+    ]
+
+    var caught: Error?
+    do {
+        try repo.insertAll(&cards)
+    } catch {
+        caught = error
+    }
+    #expect(caught != nil)
+
+    let allInDeck = try repo.fetchAll(deckId: deck.id!)
+    #expect(allInDeck.isEmpty, "no card from the batch should have persisted after rollback")
+}
+
 @Test func v8MigrationExistingRowsDefaultToWordKind() throws {
     let db = try DatabaseManager.inMemory()
     var deck = Deck(name: "Test", sourceLanguage: .ukrainian, targetLanguage: .english)
