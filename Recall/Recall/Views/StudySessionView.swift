@@ -8,6 +8,7 @@ struct StudySessionView: View {
     let selectedDeckIds: [Int64]
     let direction: StudyDirection?
     let studyMode: StudyMode
+    let ttsPlayer: TTSPlayer
     let onSessionEnded: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -20,7 +21,6 @@ struct StudySessionView: View {
     @State private var audioPlayCount = 0
 
     private let scheduler = StudyScheduler()
-    private static let synthesizer = AVSpeechSynthesizer()
 
     var body: some View {
         Group {
@@ -105,7 +105,7 @@ struct StudySessionView: View {
                     .multilineTextAlignment(.center)
             }
             if isSpeakable {
-                SpeakerButton(text: value, language: lang) { audioPlayCount += 1 }
+                SpeakerButton(text: value, language: lang, player: ttsPlayer) { audioPlayCount += 1 }
             }
         }
         .padding(.horizontal)
@@ -122,7 +122,7 @@ struct StudySessionView: View {
                 .font(.title)
                 .multilineTextAlignment(.center)
             if isSpeakable {
-                SpeakerButton(text: value, language: lang) { audioPlayCount += 1 }
+                SpeakerButton(text: value, language: lang, player: ttsPlayer) { audioPlayCount += 1 }
             }
         }
         .padding(.horizontal)
@@ -153,26 +153,20 @@ struct StudySessionView: View {
     private func autoPlayPromptIfNeeded(_ progress: CardProgress) {
         guard studyMode == .listeningWithText || studyMode == .listeningWithoutText else { return }
         let (_, text, isSpeakable, lang) = promptSpeakableContent(progress)
-        guard isSpeakable else { return }
-        SpeechAudioSession.activate()
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: lang.bcp47Locale)
+        guard isSpeakable, !text.isEmpty else { return }
         audioPlayCount += 1
-        Self.synthesizer.speak(utterance)
+        ttsPlayer.play(text: text, language: lang)
     }
 
     private func autoPlayAnswerIfNeeded(_ progress: CardProgress) {
         guard studyMode == .listeningWithText || studyMode == .listeningWithoutText else { return }
         let (_, text, isSpeakable, lang) = answerSpeakableContent(progress)
-        guard isSpeakable else { return }
-        SpeechAudioSession.activate()
+        guard isSpeakable, !text.isEmpty else { return }
         Task {
             try? await Task.sleep(for: .milliseconds(500))
-            let utterance = AVSpeechUtterance(string: text)
-            utterance.voice = AVSpeechSynthesisVoice(language: lang.bcp47Locale)
             await MainActor.run {
                 audioPlayCount += 1
-                Self.synthesizer.speak(utterance)
+                ttsPlayer.play(text: text, language: lang)
             }
         }
     }

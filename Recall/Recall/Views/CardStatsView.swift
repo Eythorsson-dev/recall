@@ -69,11 +69,33 @@ struct CardStatsView: View {
     let deck: Deck
     let card: Card
     let translationService: TranslationService?
+    let ttsQueue: TTSGenerationQueue?
+    let ttsPlayer: TTSPlayer
 
     @Environment(\.dismiss) private var dismiss
     @State private var progressByDirection: [StudyDirection: CardProgress] = [:]
     @State private var events: [ReviewEvent] = []
     @State private var showingEdit = false
+    @State private var currentCard: Card
+    @State private var refreshing: Set<FieldSide> = []
+    @State private var fetchError: [FieldSide: String] = [:]
+
+    init(
+        database: DatabaseManager,
+        deck: Deck,
+        card: Card,
+        translationService: TranslationService?,
+        ttsQueue: TTSGenerationQueue?,
+        ttsPlayer: TTSPlayer
+    ) {
+        self.database = database
+        self.deck = deck
+        self.card = card
+        self.translationService = translationService
+        self.ttsQueue = ttsQueue
+        self.ttsPlayer = ttsPlayer
+        _currentCard = State(initialValue: card)
+    }
 
     var body: some View {
         NavigationStack {
@@ -104,8 +126,15 @@ struct CardStatsView: View {
             }
         }
         .sheet(isPresented: $showingEdit) {
-            CardEditView(database: database, deck: deck, translationService: translationService, card: card)
-                .onDisappear { load() }
+            CardEditView(
+                database: database,
+                deck: deck,
+                translationService: translationService,
+                ttsQueue: ttsQueue,
+                ttsPlayer: ttsPlayer,
+                card: card
+            )
+            .onDisappear { load() }
         }
         .onAppear { load() }
     }
@@ -125,11 +154,21 @@ struct CardStatsView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 14)
 
-            Text(card.sourceValue)
+            Text(currentCard.sourceValue)
                 .font(.system(size: 40, weight: .regular, design: .serif))
                 .foregroundStyle(.primary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if deck.sourceSpeakable {
+                ttsControls(
+                    side: .source,
+                    text: currentCard.sourceValue,
+                    language: deck.sourceLanguage,
+                    audioKey: currentCard.sourceAudioKey
+                )
+                .padding(.top, 10)
+            }
 
             HStack(spacing: 6) {
                 Image(systemName: "arrow.down")
@@ -143,16 +182,126 @@ struct CardStatsView: View {
             .padding(.top, 24)
             .padding(.bottom, 8)
 
-            Text(card.targetValue)
+            Text(currentCard.targetValue)
                 .font(.system(size: 24, weight: .regular, design: .serif))
                 .italic()
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if deck.targetSpeakable {
+                ttsControls(
+                    side: .target,
+                    text: currentCard.targetValue,
+                    language: deck.targetLanguage,
+                    audioKey: currentCard.targetAudioKey
+                )
+                .padding(.top, 10)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 28)
         .padding(.top, 8)
         .padding(.bottom, 40)
+    }
+
+    // MARK: - TTS controls
+
+    @ViewBuilder
+    private func ttsControls(
+        side: FieldSide,
+        text: String,
+        language: Language,
+        audioKey: String?
+    ) -> some View {
+        let isCached = audioKey != nil
+        let isFetching = refreshing.contains(side)
+        let queueAvailable = ttsQueue != nil
+
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 14) {
+                if isCached {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color(hue: 0.38, saturation: 0.75, brightness: 0.65))
+                        .accessibilityLabel("Audio cached")
+                } else if !queueAvailable {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel("TTS API key not configured")
+                } else {
+                    Button {
+                        fetchAudio(side: side, text: text, language: language)
+                    } label: {
+                        Image(systemName: "arrow.clockwise.circle")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isFetching ? 360 : 0))
+                            .animation(
+                                isFetching
+                                    ? .linear(duration: 1).repeatForever(autoreverses: false)
+                                    : .default,
+                                value: isFetching
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isFetching || text.isEmpty)
+                    .accessibilityLabel(isFetching ? "Fetching audio" : "Fetch audio")
+                }
+
+                SpeakerButton(text: text, language: language, player: ttsPlayer) { /* count not tracked here */ }
+            }
+
+            if let message = fetchError[side] {
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(hue: 0.0, saturation: 0.65, brightness: 0.8))
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func fetchAudio(side: FieldSide, text: String, language: Language) {
+        guard let queue = ttsQueue,
+              let cardId = currentCard.id,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        refreshing.insert(side)
+        fetchError[side] = nil
+
+        do {
+            try queue.enqueue(cardId: cardId, fieldSide: side, text: text, language: language)
+        } catch {
+            fetchError[side] = "Enqueue failed: \(error)"
+            refreshing.remove(side)
+            return
+        }
+
+        Task {
+            var capturedFailures: [TTSGenerationQueue.JobFailure] = []
+            var processError: String?
+            do {
+                capturedFailures = try await queue.processPending()
+            } catch {
+                processError = "Process failed: \(error)"
+            }
+            await MainActor.run {
+                refreshing.remove(side)
+                reloadCard()
+                if let processError {
+                    fetchError[side] = processError
+                } else if let match = capturedFailures.first(where: { $0.cardId == cardId && $0.fieldSide == side }) {
+                    fetchError[side] = String(describing: match.error)
+                }
+            }
+        }
+    }
+
+    private func reloadCard() {
+        guard let cardId = currentCard.id,
+              let fresh = try? CardRepository(database: database).fetchById(cardId) else { return }
+        currentCard = fresh
     }
 
     // MARK: - Direction Panels
@@ -450,7 +599,8 @@ struct CardStatsView: View {
     }
 
     private func load() {
-        guard let cardId = card.id else { return }
+        guard let cardId = currentCard.id else { return }
+        reloadCard()
         let progressRepo = CardProgressRepository(database: database)
         let eventRepo = ReviewEventRepository(database: database)
 

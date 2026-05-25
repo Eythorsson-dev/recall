@@ -276,6 +276,31 @@ public final class DatabaseManager: Sendable {
             }
         }
 
+        migrator.registerMigration("v9_tts_generation") { db in
+            try db.alter(table: "card") { t in
+                t.add(column: "sourceAudioKey", .text)
+                t.add(column: "targetAudioKey", .text)
+            }
+
+            try db.create(table: "ttsGenerationJob") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("cardId", .integer).notNull().references("card", onDelete: .cascade)
+                t.column("fieldSide", .text).notNull()
+                t.column("text", .text).notNull()
+                t.column("language", .text).notNull()
+                t.column("status", .text).notNull().defaults(to: "pending")
+                t.column("createdAt", .datetime).notNull()
+            }
+
+            // Idempotency guard: at most one job per (card, fieldSide).
+            try db.create(
+                index: "ttsGenerationJob_cardId_fieldSide",
+                on: "ttsGenerationJob",
+                columns: ["cardId", "fieldSide"],
+                unique: true
+            )
+        }
+
         try migrator.migrate(writer)
     }
 }

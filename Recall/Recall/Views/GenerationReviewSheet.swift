@@ -11,6 +11,7 @@ struct GenerationReviewSheet: View {
     let database: DatabaseManager
     let deck: Deck
     let sentenceGenerator: SentenceGenerator?
+    let ttsQueue: TTSGenerationQueue?
 
     @Environment(\.dismiss) private var dismiss
     @State private var pending: [SentencePair] = []
@@ -158,8 +159,34 @@ struct GenerationReviewSheet: View {
                 kind: .sentence
             )
             try? repo.insert(&card)
+            enqueueTTS(forCard: card)
+        }
+        if let queue = ttsQueue {
+            Task.detached(priority: .utility) {
+                try? await queue.processPending()
+            }
         }
         dismiss()
+    }
+
+    private func enqueueTTS(forCard card: Card) {
+        guard let queue = ttsQueue, let cardId = card.id else { return }
+        if deck.sourceSpeakable {
+            try? queue.enqueue(
+                cardId: cardId,
+                fieldSide: .source,
+                text: card.sourceValue,
+                language: deck.sourceLanguage
+            )
+        }
+        if deck.targetSpeakable {
+            try? queue.enqueue(
+                cardId: cardId,
+                fieldSide: .target,
+                text: card.targetValue,
+                language: deck.targetLanguage
+            )
+        }
     }
 
     private func loadSentences() async {

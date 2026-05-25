@@ -41,6 +41,8 @@ struct DeckDetailView: View {
     let database: DatabaseManager
     let translationService: TranslationService?
     let sentenceGenerator: SentenceGenerator?
+    let ttsQueue: TTSGenerationQueue?
+    let ttsPlayer: TTSPlayer
     @State private var deck: Deck
     @State private var cards: [Card] = []
     @State private var progressByCard: [Int64: CardProgress] = [:]
@@ -51,10 +53,19 @@ struct DeckDetailView: View {
     @State private var showingRename = false
     @State private var renameDraft = ""
 
-    init(database: DatabaseManager, deck: Deck, translationService: TranslationService?, sentenceGenerator: SentenceGenerator?) {
+    init(
+        database: DatabaseManager,
+        deck: Deck,
+        translationService: TranslationService?,
+        sentenceGenerator: SentenceGenerator?,
+        ttsQueue: TTSGenerationQueue?,
+        ttsPlayer: TTSPlayer
+    ) {
         self.database = database
         self.translationService = translationService
         self.sentenceGenerator = sentenceGenerator
+        self.ttsQueue = ttsQueue
+        self.ttsPlayer = ttsPlayer
         _deck = State(initialValue: deck)
     }
 
@@ -122,20 +133,45 @@ struct DeckDetailView: View {
             }
         }
         .sheet(isPresented: $showingCreateCard) {
-            CardCreationView(database: database, deck: deck, translationService: translationService)
-                .onDisappear { loadCards() }
+            CardCreationView(
+                database: database,
+                deck: deck,
+                translationService: translationService,
+                ttsQueue: ttsQueue,
+                ttsPlayer: ttsPlayer
+            )
+            .onDisappear { loadCards() }
         }
         .sheet(isPresented: $showingGenerateSentences) {
-            GenerationReviewSheet(database: database, deck: deck, sentenceGenerator: sentenceGenerator)
-                .onDisappear { loadCards() }
+            GenerationReviewSheet(
+                database: database,
+                deck: deck,
+                sentenceGenerator: sentenceGenerator,
+                ttsQueue: ttsQueue
+            )
+            .onDisappear { loadCards() }
         }
         .sheet(item: $editingCard) { card in
-            CardEditView(database: database, deck: deck, translationService: translationService, card: card)
-                .onDisappear { loadCards() }
+            CardEditView(
+                database: database,
+                deck: deck,
+                translationService: translationService,
+                ttsQueue: ttsQueue,
+                ttsPlayer: ttsPlayer,
+                card: card
+            )
+            .onDisappear { loadCards() }
         }
         .sheet(item: $statsCard) { card in
-            CardStatsView(database: database, deck: deck, card: card, translationService: translationService)
-                .onDisappear { loadCards() }
+            CardStatsView(
+                database: database,
+                deck: deck,
+                card: card,
+                translationService: translationService,
+                ttsQueue: ttsQueue,
+                ttsPlayer: ttsPlayer
+            )
+            .onDisappear { loadCards() }
         }
         .alert("Rename Deck", isPresented: $showingRename) {
             TextField("Deck name", text: $renameDraft)
@@ -255,7 +291,7 @@ struct DeckDetailView: View {
 
                 if !cards.isEmpty {
                     NavigationLink {
-                        StudySetupView(database: database, decks: [deck])
+                        StudySetupView(database: database, decks: [deck], ttsPlayer: ttsPlayer)
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "brain.head.profile")
