@@ -69,12 +69,16 @@ public final class TTSGenerationQueue: Sendable {
 
     /// Generates audio for every pending and failed job, in insertion order.
     /// Safe to call repeatedly — finished jobs are deleted before the next iteration.
-    public func processPending() async throws {
+    /// Returns a list of `(jobId, error)` for any jobs that failed in this pass.
+    @discardableResult
+    public func processPending() async throws -> [JobFailure] {
         let jobs = try await database.reader.read { db in
             try TTSGenerationJob
                 .order(Column("createdAt").asc, Column("id").asc)
                 .fetchAll(db)
         }
+
+        var failures: [JobFailure] = []
 
         for job in jobs {
             guard let jobId = job.id else { continue }
@@ -99,9 +103,19 @@ public final class TTSGenerationQueue: Sendable {
                 try writeAudioKey(cardId: job.cardId, fieldSide: job.fieldSide, key: key)
                 try delete(jobId: jobId)
             } catch {
+                print("[TTSGenerationQueue] job \(jobId) failed for cardId=\(job.cardId) side=\(job.fieldSide.rawValue): \(error)")
                 try markFailed(jobId: jobId)
+                failures.append(JobFailure(cardId: job.cardId, fieldSide: job.fieldSide, error: error))
             }
         }
+
+        return failures
+    }
+
+    public struct JobFailure: Sendable {
+        public let cardId: Int64
+        public let fieldSide: FieldSide
+        public let error: Error
     }
 
     private func writeAudioKey(cardId: Int64, fieldSide: FieldSide, key: String) throws {
