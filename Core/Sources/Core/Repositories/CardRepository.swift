@@ -55,6 +55,17 @@ public struct CardRepository: Sendable {
         }
     }
 
+    public func fetchAll(deckId: Int64, kind: CardKind) throws -> [Card] {
+        try db.reader.read { dbConn in
+            try Card
+                .filter(Column("deckId") == deckId)
+                .filter(Column("kind") == kind.rawValue)
+                .filter(Column("deletedAt") == nil)
+                .order(Column("createdAt").desc)
+                .fetchAll(dbConn)
+        }
+    }
+
     public func fetchById(_ id: Int64) throws -> Card? {
         try db.reader.read { dbConn in
             try Card.fetchOne(dbConn, key: id)
