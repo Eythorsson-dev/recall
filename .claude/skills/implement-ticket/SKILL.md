@@ -32,13 +32,17 @@ silently override.
 
 ### 2. Claim the ticket
 
-Add the `in-progress` label so other agents and this script skip it:
+Add the `in-progress` label so other agents and this script skip it, then
+**verify by reading the labels back** — `gh issue edit` has been observed to
+return a success-looking URL while silently no-op'ing:
 
 ```
 gh issue edit <N> --add-label in-progress
+gh issue view <N> --json labels -q '[.labels[].name]'
 ```
 
-If this fails (network, permissions), stop — without the claim there is no
+Confirm `in-progress` is in the returned list. If it isn't, retry once; if it
+still isn't, stop and tell the user — without a confirmed claim there is no
 lock and a parallel agent could pick up the same ticket.
 
 ### 3. Create an isolated worktree
