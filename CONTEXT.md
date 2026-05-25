@@ -130,10 +130,10 @@ _Avoid_: language string, locale string
 The `Core` component responsible for generating speech audio from a speakable Field value. Primary engine: Google Cloud TTS Neural2 (free 1M chars/month, high-fidelity, supports Ukrainian and Spanish). Fallback engine: `AVSpeechSynthesizer` — used only when no cached audio exists and the device is offline. The fallback is silent for unsupported languages (e.g. Ukrainian via AVSpeechSynthesizer); the TTS Service never surfaces a broken state to the user.
 
 **Audio Cache**:
-Content-addressed storage of generated audio files, keyed by `SHA256(text + language + voiceID)`. Lives in the app's local documents directory and syncs to CloudKit. Deduplicates identical text across Cards — "hola" is generated and stored once regardless of how many Cards contain it. Orphaned files (no Card references the hash) are removed on periodic garbage-collection sweeps.
+Content-addressed storage of generated audio files, keyed by `SHA256(text + language + voiceID)`. Lives in the app's local documents directory. Deduplicates identical text across Cards — "hola" is generated and stored once regardless of how many Cards contain it. `orphanSweep(referencedKeys:)` removes files no Card references.
 
 **TTS Generation Queue**:
-A persistent, idempotent queue of pending audio generation jobs. A job is enqueued when a Card enters the Library (on save for manual cards, on accept for AI-generated cards) or when a speakable Field is edited. Jobs execute when connectivity is available and are retried on failure. Survives app restarts. Once a job completes, the resulting audio file is written to the Audio Cache and synced via CloudKit.
+A persistent, idempotent queue of pending audio generation jobs. A job is enqueued when a Card enters the Library (on save for manual cards, on accept for AI-generated cards) or when a speakable Field is edited. Jobs execute when the queue is processed and are retried on failure. Survives app restarts. Once a job completes, the resulting audio file is written to the Audio Cache and the Card's `sourceAudioKey` / `targetAudioKey` is stamped.
 
 **Speakable Field**:
 A Field on a Card whose value should be spoken aloud during study. Marked at the Deck level via `sourceSpeakable` / `targetSpeakable`. Only speakable Fields enqueue TTS generation jobs and appear in Listening study modes.

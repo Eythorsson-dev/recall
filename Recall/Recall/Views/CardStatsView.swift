@@ -69,6 +69,8 @@ struct CardStatsView: View {
     let deck: Deck
     let card: Card
     let translationService: TranslationService?
+    let ttsQueue: TTSGenerationQueue?
+    let ttsPlayer: TTSPlayer
 
     @Environment(\.dismiss) private var dismiss
     @State private var progressByDirection: [StudyDirection: CardProgress] = [:]
@@ -104,8 +106,15 @@ struct CardStatsView: View {
             }
         }
         .sheet(isPresented: $showingEdit) {
-            CardEditView(database: database, deck: deck, translationService: translationService, card: card)
-                .onDisappear { load() }
+            CardEditView(
+                database: database,
+                deck: deck,
+                translationService: translationService,
+                ttsQueue: ttsQueue,
+                ttsPlayer: ttsPlayer,
+                card: card
+            )
+            .onDisappear { load() }
         }
         .onAppear { load() }
     }

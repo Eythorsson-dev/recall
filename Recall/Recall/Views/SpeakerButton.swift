@@ -5,15 +5,14 @@ import Core
 struct SpeakerButton: View {
     let text: String
     let language: Language
+    let player: TTSPlayer
     let onPlay: () -> Void
 
     @State private var isPlaying = false
 
-    private static let synthesizer = AVSpeechSynthesizer()
-
     var body: some View {
         Button {
-            speak()
+            play()
         } label: {
             Image(systemName: isPlaying ? "speaker.wave.2.fill" : "speaker.wave.2")
                 .font(.system(size: 20))
@@ -23,16 +22,15 @@ struct SpeakerButton: View {
         .buttonStyle(.plain)
     }
 
-    private func speak() {
-        guard !Self.synthesizer.isSpeaking else { return }
-        SpeechAudioSession.activate()
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: language.bcp47Locale)
+    private func play() {
+        guard !isPlaying else { return }
         isPlaying = true
         onPlay()
-        Self.synthesizer.speak(utterance)
-        // Reset playing state after estimated duration
-        let duration = max(1.5, Double(text.count) * 0.08)
+        player.play(text: text, language: language)
+        // Reset playing state after estimated duration — exact length is unknown
+        // without decoding the audio, and an ~equal estimate works for both the
+        // cache-hit (AVAudioPlayer) and fallback (AVSpeechSynthesizer) paths.
+        let duration = player.estimatedDuration(forText: text)
         Task {
             try? await Task.sleep(for: .seconds(duration))
             await MainActor.run { isPlaying = false }

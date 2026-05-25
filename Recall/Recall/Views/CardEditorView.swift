@@ -20,6 +20,8 @@ struct CardEditorView: View {
     let database: DatabaseManager
     let deck: Deck
     let translationService: TranslationService?
+    let ttsQueue: TTSGenerationQueue?
+    let ttsPlayer: TTSPlayer
 
     @Environment(\.dismiss) private var dismiss
 
@@ -37,12 +39,16 @@ struct CardEditorView: View {
         mode: Mode,
         database: DatabaseManager,
         deck: Deck,
-        translationService: TranslationService?
+        translationService: TranslationService?,
+        ttsQueue: TTSGenerationQueue?,
+        ttsPlayer: TTSPlayer
     ) {
         self.mode = mode
         self.database = database
         self.deck = deck
         self.translationService = translationService
+        self.ttsQueue = ttsQueue
+        self.ttsPlayer = ttsPlayer
         if case .edit(let existing) = mode {
             _sourceValue = State(initialValue: existing.sourceValue)
             _targetValue = State(initialValue: existing.targetValue)
@@ -274,7 +280,9 @@ struct CardEditorView: View {
                     .font(.system(size: 9, weight: .bold))
                     .tracking(1.4)
                     .foregroundStyle(.tertiary)
-                SpeakerButton(text: text, language: language) { /* play count not tracked outside study */ }
+                SpeakerButton(text: text, language: language, player: ttsPlayer) {
+                    // play count not tracked outside study sessions
+                }
             }
             .transition(.opacity.combined(with: .move(edge: .trailing)))
         }
@@ -364,13 +372,42 @@ struct CardEditorView: View {
                 targetValueIsUserModified: targetValueIsUserModified
             )
             try? repo.insert(&card)
+            enqueueTTS(forCardId: card.id, previous: nil)
         case .edit(let existing):
             var updated = existing
             updated.sourceValue = sourceValue
             updated.targetValue = targetValue
             updated.targetValueIsUserModified = targetValueIsUserModified
             try? repo.update(&updated)
+            enqueueTTS(forCardId: existing.id, previous: existing)
         }
         dismiss()
+    }
+
+    /// Enqueue TTS for any speakable field whose text just landed in the Library
+    /// (or changed in an edit). New cards always enqueue both speakable sides;
+    /// edits skip sides whose text didn't change.
+    private func enqueueTTS(forCardId cardId: Int64?, previous: Card?) {
+        guard let queue = ttsQueue, let cardId else { return }
+
+        if deck.sourceSpeakable, previous?.sourceValue != sourceValue {
+            try? queue.enqueue(
+                cardId: cardId,
+                fieldSide: .source,
+                text: sourceValue,
+                language: deck.sourceLanguage
+            )
+        }
+        if deck.targetSpeakable, previous?.targetValue != targetValue {
+            try? queue.enqueue(
+                cardId: cardId,
+                fieldSide: .target,
+                text: targetValue,
+                language: deck.targetLanguage
+            )
+        }
+        Task.detached(priority: .utility) {
+            try? await queue.processPending()
+        }
     }
 }

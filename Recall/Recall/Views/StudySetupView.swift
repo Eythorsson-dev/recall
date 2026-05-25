@@ -4,6 +4,7 @@ import Core
 struct StudySetupView: View {
     let database: DatabaseManager
     let decks: [Deck]
+    let ttsPlayer: TTSPlayer
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedDeckIds: Set<Int64> = []
@@ -33,6 +34,7 @@ struct StudySetupView: View {
                 selectedDeckIds: Array(selectedDeckIds),
                 direction: direction,
                 studyMode: studyMode,
+                ttsPlayer: ttsPlayer,
                 onSessionEnded: { dismiss() }
             )
         }
