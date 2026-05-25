@@ -7,6 +7,7 @@ public struct Card: Codable, Identifiable, Sendable {
     public var sourceValue: String
     public var targetValue: String
     public var targetValueIsUserModified: Bool
+    public var kind: CardKind
 
     public var createdAt: Date
     public var updatedAt: Date
@@ -18,6 +19,7 @@ public struct Card: Codable, Identifiable, Sendable {
         sourceValue: String = "",
         targetValue: String = "",
         targetValueIsUserModified: Bool = false,
+        kind: CardKind = .word,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -27,6 +29,7 @@ public struct Card: Codable, Identifiable, Sendable {
         self.sourceValue = sourceValue
         self.targetValue = targetValue
         self.targetValueIsUserModified = targetValueIsUserModified
+        self.kind = kind
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt

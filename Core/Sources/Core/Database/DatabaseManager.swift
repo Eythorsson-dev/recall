@@ -270,6 +270,12 @@ public final class DatabaseManager: Sendable {
             }
         }
 
+        migrator.registerMigration("v8_card_kind") { db in
+            try db.alter(table: "card") { t in
+                t.add(column: "kind", .text).notNull().defaults(to: "word")
+            }
+        }
+
         try migrator.migrate(writer)
     }
 }

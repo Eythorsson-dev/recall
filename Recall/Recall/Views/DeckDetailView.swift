@@ -44,6 +44,7 @@ struct DeckDetailView: View {
     @State private var cards: [Card] = []
     @State private var progressByCard: [Int64: CardProgress] = [:]
     @State private var showingCreateCard = false
+    @State private var showingGenerateSentences = false
     @State private var editingCard: Card?
     @State private var statsCard: Card?
     @State private var showingRename = false
@@ -96,9 +97,7 @@ struct DeckDetailView: View {
                 }
             }
 
-            if !cards.isEmpty {
-                studyButton
-            }
+            bottomActions
         }
         .navigationTitle(deck.name)
         .toolbar {
@@ -122,6 +121,10 @@ struct DeckDetailView: View {
         }
         .sheet(isPresented: $showingCreateCard) {
             CardCreationView(database: database, deck: deck, translationService: translationService)
+                .onDisappear { loadCards() }
+        }
+        .sheet(isPresented: $showingGenerateSentences) {
+            GenerationReviewSheet(database: database, deck: deck)
                 .onDisappear { loadCards() }
         }
         .sheet(item: $editingCard) { card in
@@ -224,7 +227,7 @@ struct DeckDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
-    private var studyButton: some View {
+    private var bottomActions: some View {
         VStack(spacing: 0) {
             LinearGradient(
                 colors: [Color(.systemGroupedBackground).opacity(0), Color(.systemGroupedBackground)],
@@ -234,21 +237,38 @@ struct DeckDetailView: View {
             .frame(height: 24)
             .allowsHitTesting(false)
 
-            NavigationLink {
-                StudySetupView(database: database, decks: [deck])
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "brain.head.profile")
-                    Text("Study Deck")
+            VStack(spacing: 10) {
+                Button { showingGenerateSentences = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                        Text("Generate Sentences")
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.accentColor.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Color.accentColor)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal, 20)
+
+                if !cards.isEmpty {
+                    NavigationLink {
+                        StudySetupView(database: database, decks: [deck])
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "brain.head.profile")
+                            Text("Study Deck")
+                        }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                }
             }
+            .padding(.horizontal, 20)
             .padding(.bottom, 12)
             .background(Color(.systemGroupedBackground))
         }
