@@ -33,7 +33,8 @@ public struct GeminiClient: Sendable {
             throw GeminiError.malformedResponse
         }
         guard (200..<300).contains(http.statusCode) else {
-            throw GeminiError.httpError(statusCode: http.statusCode)
+            let body = String(data: data, encoding: .utf8)
+            throw GeminiError.httpError(statusCode: http.statusCode, body: body)
         }
 
         guard let decoded = try? JSONDecoder().decode(ResponseBody.self, from: data),
@@ -43,10 +44,24 @@ public struct GeminiClient: Sendable {
         return GeminiResponse(text: text)
     }
 
-    public enum GeminiError: Error {
-        case httpError(statusCode: Int)
+    public enum GeminiError: Error, CustomStringConvertible {
+        case httpError(statusCode: Int, body: String?)
         case malformedResponse
         case transportError(Error)
+
+        public var description: String {
+            switch self {
+            case .httpError(let statusCode, let body):
+                if let body, !body.isEmpty {
+                    return "Gemini HTTP \(statusCode): \(body)"
+                }
+                return "Gemini HTTP \(statusCode)"
+            case .malformedResponse:
+                return "Gemini returned a malformed response"
+            case .transportError(let error):
+                return "Gemini transport error: \(error.localizedDescription)"
+            }
+        }
     }
 
     private func makeRequestBody(prompt: String, responseSchema: Data) throws -> Data {

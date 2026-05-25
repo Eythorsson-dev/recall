@@ -140,7 +140,7 @@ struct GeminiClientTests {
         var caughtStatus: Int?
         do {
             _ = try await client.generate(prompt: "hi", responseSchema: minimalSchema())
-        } catch let GeminiClient.GeminiError.httpError(statusCode) {
+        } catch let GeminiClient.GeminiError.httpError(statusCode, _) {
             caughtStatus = statusCode
         }
         #expect(caughtStatus == 429)
