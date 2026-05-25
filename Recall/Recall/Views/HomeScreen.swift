@@ -4,13 +4,14 @@ import Core
 struct HomeScreen: View {
     let database: DatabaseManager
     let translationService: TranslationService?
+    let sentenceGenerator: SentenceGenerator?
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     NavigationLink {
-                        LibraryView(database: database, translationService: translationService)
+                        LibraryView(database: database, translationService: translationService, sentenceGenerator: sentenceGenerator)
                     } label: {
                         Label("Library", systemImage: "rectangle.stack")
                     }

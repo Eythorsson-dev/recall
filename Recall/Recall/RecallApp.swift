@@ -6,11 +6,12 @@ struct RecallApp: App {
     @State private var databaseManager: DatabaseManager?
     @State private var databaseError: Error?
     @State private var translationService: TranslationService?
+    @State private var sentenceGenerator: SentenceGenerator?
 
     var body: some Scene {
         WindowGroup {
             if let db = databaseManager {
-                LibraryView(database: db, translationService: translationService)
+                LibraryView(database: db, translationService: translationService, sentenceGenerator: sentenceGenerator)
             } else if let error = databaseError {
                 Text("Database error: \(error.localizedDescription)")
             } else {
@@ -27,6 +28,10 @@ struct RecallApp: App {
             if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GoogleTranslationAPIKey") as? String,
                !apiKey.isEmpty {
                 translationService = TranslationService(apiKey: apiKey)
+            }
+            if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GeminiAPIKey") as? String,
+               !apiKey.isEmpty {
+                sentenceGenerator = SentenceGenerator(client: GeminiClient(apiKey: apiKey))
             }
         } catch {
             databaseError = error
