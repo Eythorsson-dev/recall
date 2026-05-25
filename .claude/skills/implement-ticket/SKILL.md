@@ -17,18 +17,26 @@ which ticket — do not guess.
 
 ### 1. Validate eligibility
 
-Run `scripts/ai-ready-issues.sh` and confirm the issue appears in the output.
+Fetch the issue details:
 
-If it does **not** appear, run `gh issue view <N> --json state,labels,body` and
-diagnose:
+```
+gh issue view <N> --json state,labels,body
+```
 
-- Closed → tell the user and stop.
-- Missing `AI-Ready` label → tell the user and stop (they may want to label it).
-- Already has `in-progress` label → someone (or another agent) is on it; stop.
-- Open blockers in the `## Blocked by` section → list the unresolved ones; stop.
+Stop and tell the user if any of these hold:
 
-Only proceed past this step if the issue is genuinely eligible. Do **not**
-silently override.
+- `state` is `CLOSED`.
+- `labels` contains `in-progress` — already claimed by another agent or session.
+- The body has a `## Blocked by` section with unresolved entries. For each
+  `#M` reference, check `gh issue view <M> --json state` and treat it as a
+  blocker if still `OPEN`. Free-text entries (no `#M` ref) count as
+  unresolved on their own — surface them to the user.
+
+This skill does **not** look at the `AI-Ready` label or run
+`scripts/ai-ready-issues.sh`. Those belong to the queue filter that *picks*
+which ticket to work on next. Once a caller has invoked this skill on a
+specific ticket, the only question is whether that ticket itself is
+implementable right now.
 
 ### 2. Claim the ticket
 
