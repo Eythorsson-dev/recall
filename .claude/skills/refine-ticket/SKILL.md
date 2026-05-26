@@ -15,8 +15,8 @@ refine-ticket adds the `AI-Ready` label, implement-ticket consumes it.
 
 ## Inputs
 
-A single GitHub issue number (e.g. `50`). If the user didn't provide one,
-ask — do not guess.
+A single GitHub issue number, provided by the user. If they didn't include
+one in the invocation, ask — do not guess and do not pick from the queue.
 
 ## Steps
 

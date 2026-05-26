@@ -10,8 +10,9 @@ back a draft PR ready for review.
 
 ## Inputs
 
-A single GitHub issue number (e.g. `38`). If the user did not provide one, ask
-which ticket — do not guess.
+A single GitHub issue number, provided by the user. If they did not include
+one in the invocation, ask which ticket — do not guess and do not pick from
+the AI-Ready queue.
 
 ## Steps
 
