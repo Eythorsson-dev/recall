@@ -226,10 +226,10 @@ struct DeckDetailView: View {
                 .frame(width: 3, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(card.sourceValue)
+                Text(card.targetValue)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.primary)
-                Text(card.targetValue)
+                Text(card.sourceValue)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             }
