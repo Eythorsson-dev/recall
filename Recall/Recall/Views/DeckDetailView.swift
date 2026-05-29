@@ -46,6 +46,7 @@ struct DeckDetailView: View {
     @State private var deck: Deck
     @State private var cards: [Card] = []
     @State private var progressByCard: [Int64: CardProgress] = [:]
+    @State private var searchText = ""
     @State private var showingCreateCard = false
     @State private var showingGenerateSentences = false
     @State private var editingCard: Card?
@@ -72,6 +73,16 @@ struct DeckDetailView: View {
     private var dueCount: Int { progressByCard.values.filter { $0.isDue }.count }
     private var newCount: Int { progressByCard.values.filter { $0.state == .new }.count }
 
+    private var filteredCards: [Card] {
+        let query = searchText.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return cards }
+        func fold(_ s: String) -> String {
+            s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        }
+        return cards.filter { fold($0.sourceValue).contains(query) || fold($0.targetValue).contains(query) }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             List {
@@ -82,7 +93,7 @@ struct DeckDetailView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                ForEach(cards) { card in
+                ForEach(filteredCards) { card in
                     cardRow(card, progress: progressByCard[card.id!])
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
@@ -107,12 +118,15 @@ struct DeckDetailView: View {
                         systemImage: "character.book.closed",
                         description: Text("Tap + to add your first card.")
                     )
+                } else if filteredCards.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 }
             }
 
             bottomActions
         }
         .navigationTitle(deck.name)
+        .searchable(text: $searchText, prompt: "Search words")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showingCreateCard = true } label: {
@@ -329,8 +343,9 @@ struct DeckDetailView: View {
 
     private func deleteCards(at offsets: IndexSet) {
         let repo = CardRepository(database: database)
+        let visible = filteredCards
         for index in offsets {
-            var card = cards[index]
+            var card = visible[index]
             try? repo.softDelete(&card)
         }
         loadCards()
