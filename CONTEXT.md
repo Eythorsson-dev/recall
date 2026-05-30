@@ -110,7 +110,12 @@ A cumulative count of Cards where *both* Study Directions have been rated Good o
 _Avoid_: retention rate, overdue count, mastery percentage (all read as failure metrics)
 
 **Daily Card Limit**:
-The maximum number of new Cards introduced per day. Default: 10. Onboarding ramp: 5/day for the first two weeks, then auto-suggest 10 once the habit is established. Reviews are never capped — capping reviews corrupts FSRS scheduling. Settings screen shows a "projected daily reviews in 30 days" preview when the user adjusts the limit.
+The maximum number of new Cards introduced per day. Due reviews are never capped — capping reviews corrupts FSRS scheduling by assuming on-time study. A study session always includes all due reviews plus up to (Daily Card Limit − new cards introduced today) new Cards, interleaved in one queue. "New cards introduced today" = distinct Cards whose earliest ReviewEvent timestamp falls on the current calendar day. Default: 10. User-adjustable via a global setting. Settings screen shows a "projected daily reviews in 30 days" preview (≈ 10× new cards/day at steady state) when the user adjusts the limit.
+_Avoid_: session size cap, total-cards-per-session limit (both imply reviews are capped, which they never are)
+
+**Learn More**:
+An optional escape hatch shown on the session-complete screen when the user has hit their Daily Card Limit but unlearned Cards remain in the deck. Tapping it adds a small fixed batch of 2–4 new Cards to study immediately. Today-only — it does not change the Daily Card Limit for future sessions. Can be tapped multiple times in one day. Hidden when no unlearned Cards remain.
+_Avoid_: "study extra", "custom study" (Anki term)
 
 ### Notifications
 
