@@ -264,20 +264,41 @@ struct StudySessionView: View {
     }
 
     private var sessionCompleteView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.green)
-            Text("Session Complete")
-                .font(.title)
-            Text("You reviewed \(queue.count) card\(queue.count == 1 ? "" : "s").")
-                .foregroundStyle(.secondary)
-            if !learnMoreCards.isEmpty {
-                Button("Learn more") { learnMore() }
-                    .buttonStyle(.bordered)
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.green)
+                Text("Session Complete")
+                    .font(.title)
+                Text("You reviewed \(queue.count) card\(queue.count == 1 ? "" : "s").")
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(queue) { progress in
+                        if let card = cardLookup[progress.cardId] {
+                            HStack {
+                                Text(card.sourceValue)
+                                Image(systemName: "arrow.right")
+                                    .foregroundStyle(.secondary)
+                                    .font(.caption)
+                                Text(card.targetValue)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            Divider()
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+                if !learnMoreCards.isEmpty {
+                    Button("Learn more") { learnMore() }
+                        .buttonStyle(.bordered)
+                }
+                Button("Done") { onSessionEnded() }
+                    .buttonStyle(.borderedProminent)
             }
-            Button("Done") { onSessionEnded() }
-                .buttonStyle(.borderedProminent)
+            .padding(.vertical)
         }
     }
 
