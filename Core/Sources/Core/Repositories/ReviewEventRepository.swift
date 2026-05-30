@@ -22,4 +22,29 @@ public struct ReviewEventRepository: Sendable {
                 .fetchAll(dbConn)
         }
     }
+
+    /// Count of distinct cards (in the given decks) whose first-ever ReviewEvent falls on today.
+    public func fetchTodayNewCardCount(deckIds: [Int64]) throws -> Int {
+        guard !deckIds.isEmpty else { return 0 }
+        return try db.reader.read { dbConn in
+            let placeholders = deckIds.map { _ in "?" }.joined(separator: ",")
+            let calendar = Calendar.current
+            let startOfToday = calendar.startOfDay(for: Date())
+            let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+            return try Int.fetchOne(
+                dbConn,
+                sql: """
+                SELECT COUNT(*) FROM (
+                    SELECT cardId FROM reviewEvent
+                    WHERE cardId IN (
+                        SELECT id FROM card WHERE deckId IN (\(placeholders)) AND deletedAt IS NULL
+                    )
+                    GROUP BY cardId
+                    HAVING MIN(timestamp) >= ? AND MIN(timestamp) < ?
+                )
+                """,
+                arguments: StatementArguments(deckIds + [startOfToday, startOfTomorrow])
+            ) ?? 0
+        }
+    }
 }

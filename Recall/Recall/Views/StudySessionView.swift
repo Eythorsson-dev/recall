@@ -19,6 +19,7 @@ struct StudySessionView: View {
     @State private var revealTime: Date?
     @State private var sessionComplete = false
     @State private var audioPlayCount = 0
+    @State private var learnMoreCards: [CardProgress] = []
 
     private let scheduler = StudyScheduler()
 
@@ -232,7 +233,34 @@ struct StudySessionView: View {
             currentIndex += 1
         } else {
             sessionComplete = true
+            fetchLearnMoreCards()
         }
+    }
+
+    private func fetchLearnMoreCards() {
+        let progressRepo = CardProgressRepository(database: database)
+        let cardRepo = CardRepository(database: database)
+        do {
+            let cards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: 4)
+            for card in cards {
+                if let c = try cardRepo.fetchById(card.cardId) {
+                    cardLookup[card.cardId] = c
+                }
+            }
+            learnMoreCards = cards
+        } catch {
+            learnMoreCards = []
+        }
+    }
+
+    private func learnMore() {
+        queue = learnMoreCards
+        learnMoreCards = []
+        currentIndex = 0
+        isRevealed = false
+        revealTime = nil
+        audioPlayCount = 0
+        sessionComplete = false
     }
 
     private var sessionCompleteView: some View {
@@ -244,6 +272,10 @@ struct StudySessionView: View {
                 .font(.title)
             Text("You reviewed \(queue.count) card\(queue.count == 1 ? "" : "s").")
                 .foregroundStyle(.secondary)
+            if !learnMoreCards.isEmpty {
+                Button("Learn more") { learnMore() }
+                    .buttonStyle(.bordered)
+            }
             Button("Done") { onSessionEnded() }
                 .buttonStyle(.borderedProminent)
         }
@@ -251,16 +283,15 @@ struct StudySessionView: View {
 
     private func loadQueue() {
         let progressRepo = CardProgressRepository(database: database)
+        let eventRepo = ReviewEventRepository(database: database)
         let cardRepo = CardRepository(database: database)
 
         do {
-            let due = try progressRepo.fetchDueForSession(
-                deckIds: selectedDeckIds,
-                direction: direction
-            )
-            let progressItems = due.isEmpty
-                ? try progressRepo.fetchAllForSession(deckIds: selectedDeckIds, direction: direction)
-                : due
+            let due = try progressRepo.fetchDueForSession(deckIds: selectedDeckIds, direction: direction)
+            let todayNewCount = try eventRepo.fetchTodayNewCardCount(deckIds: selectedDeckIds)
+            let newLimit = max(0, 10 - todayNewCount)
+            let newCards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: newLimit)
+            let progressItems = interleave(due: due, new: newCards)
 
             queue = progressItems
 
@@ -278,5 +309,24 @@ struct StudySessionView: View {
             print("Load queue error: \(error)")
             sessionComplete = true
         }
+    }
+
+    private func interleave(due: [CardProgress], new: [CardProgress]) -> [CardProgress] {
+        guard !new.isEmpty else { return due }
+        guard !due.isEmpty else { return new }
+        var result: [CardProgress] = []
+        let segmentSize = due.count / (new.count + 1)
+        let remainder = due.count % (new.count + 1)
+        var dueOffset = 0
+        for (i, newCard) in new.enumerated() {
+            let segEnd = min(dueOffset + segmentSize + (i < remainder ? 1 : 0), due.count)
+            result.append(contentsOf: due[dueOffset..<segEnd])
+            result.append(newCard)
+            dueOffset = segEnd
+        }
+        if dueOffset < due.count {
+            result.append(contentsOf: due[dueOffset...])
+        }
+        return result
     }
 }

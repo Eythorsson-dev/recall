@@ -152,3 +152,57 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     #expect(due.count == 1)
     #expect(due[0].direction == .sourceToTarget)
 }
+
+@Test func fetchNewCardsReturnsOnlyFsrsStateZero() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardProgressRepository(database: db)
+    let cardRepo = CardRepository(database: db)
+    let scheduler = StudyScheduler()
+
+    var card1 = Card(deckId: deck.id!, sourceValue: "так", targetValue: "yes")
+    var card2 = Card(deckId: deck.id!, sourceValue: "ні", targetValue: "no")
+    try cardRepo.insert(&card1)
+    try cardRepo.insert(&card2)
+
+    // Rate card1 so it's no longer in fsrsState 0
+    var p = try repo.fetch(cardId: card1.id!, direction: .sourceToTarget)!
+    p = scheduler.schedule(progress: p, rating: .good)
+    try repo.update(&p)
+
+    let newCards = try repo.fetchNewCards(deckIds: [deck.id!], direction: .sourceToTarget, limit: 10)
+    #expect(newCards.count == 1)
+    #expect(newCards[0].cardId == card2.id!)
+}
+
+@Test func fetchNewCardsRespectsLimit() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardProgressRepository(database: db)
+    let cardRepo = CardRepository(database: db)
+
+    for i in 0..<5 {
+        var card = Card(deckId: deck.id!, sourceValue: "word\(i)", targetValue: "trans\(i)")
+        try cardRepo.insert(&card)
+    }
+
+    let newCards = try repo.fetchNewCards(deckIds: [deck.id!], direction: .sourceToTarget, limit: 3)
+    #expect(newCards.count == 3)
+}
+
+@Test func fetchNewCardsRespectsDirectionFilter() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardProgressRepository(database: db)
+    let cardRepo = CardRepository(database: db)
+
+    var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
+    try cardRepo.insert(&card)
+
+    let forward = try repo.fetchNewCards(deckIds: [deck.id!], direction: .sourceToTarget, limit: 10)
+    let reverse = try repo.fetchNewCards(deckIds: [deck.id!], direction: .targetToSource, limit: 10)
+    #expect(forward.count == 1)
+    #expect(forward[0].direction == .sourceToTarget)
+    #expect(reverse.count == 1)
+    #expect(reverse[0].direction == .targetToSource)
+}

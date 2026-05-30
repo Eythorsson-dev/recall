@@ -110,6 +110,33 @@ public struct CardProgressRepository: Sendable {
         try fetchDueForSession(deckIds: deckIds, direction: direction, before: date).count
     }
 
+    /// CardProgress rows with fsrsState = 0 (never reviewed) in the given decks, up to `limit`.
+    public func fetchNewCards(
+        deckIds: [Int64],
+        direction: StudyDirection?,
+        limit: Int
+    ) throws -> [CardProgress] {
+        guard !deckIds.isEmpty, limit > 0 else { return [] }
+        return try db.reader.read { dbConn -> [CardProgress] in
+            let placeholders = deckIds.map { _ in "?" }.joined(separator: ",")
+            let cardIds = try Int64.fetchAll(
+                dbConn,
+                sql: "SELECT id FROM card WHERE deckId IN (\(placeholders)) AND deletedAt IS NULL",
+                arguments: StatementArguments(deckIds)
+            )
+            guard !cardIds.isEmpty else { return [] }
+            var query = CardProgress
+                .filter(cardIds.contains(Column("cardId")))
+                .filter(Column("fsrsState") == 0)
+                .order(Column("cardId").asc)
+                .limit(limit)
+            if let dir = direction {
+                query = query.filter(Column("direction") == dir.rawValue)
+            }
+            return try query.fetchAll(dbConn)
+        }
+    }
+
     /// Number of unique non-deleted cards across the given decks.
     public func fetchCardCount(deckIds: [Int64]) throws -> Int {
         guard !deckIds.isEmpty else { return 0 }
