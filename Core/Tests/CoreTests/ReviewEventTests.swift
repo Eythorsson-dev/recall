@@ -119,6 +119,57 @@ private func makeTestDeck(in db: DatabaseManager) throws -> Deck {
     }
 }
 
+@Test func fetchTodayNewCardCountCountsFirstReviewsToday() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let cardRepo = CardRepository(database: db)
+    let eventRepo = ReviewEventRepository(database: db)
+
+    var card1 = Card(deckId: deck.id!, sourceValue: "так", targetValue: "yes")
+    var card2 = Card(deckId: deck.id!, sourceValue: "ні", targetValue: "no")
+    try cardRepo.insert(&card1)
+    try cardRepo.insert(&card2)
+
+    // card1: first reviewed today (two events today → still counts as 1)
+    var e1 = ReviewEvent(cardId: card1.id!, rating: 3, direction: .sourceToTarget, timeToRevealSeconds: 1.0)
+    var e2 = ReviewEvent(cardId: card1.id!, rating: 4, direction: .sourceToTarget, timeToRevealSeconds: 1.0)
+    try eventRepo.insert(&e1)
+    try eventRepo.insert(&e2)
+
+    // card2: first reviewed yesterday → does not count
+    let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+    var e3 = ReviewEvent(cardId: card2.id!, rating: 3, direction: .sourceToTarget, timeToRevealSeconds: 1.0, timestamp: yesterday)
+    try eventRepo.insert(&e3)
+
+    let count = try eventRepo.fetchTodayNewCardCount(deckIds: [deck.id!])
+    #expect(count == 1)
+}
+
+@Test func fetchTodayNewCardCountIgnoresCardsFromOtherDecks() throws {
+    let db = try DatabaseManager.inMemory()
+    let deckRepo = DeckRepository(database: db)
+    var deckA = Deck(name: "A", sourceLanguage: .ukrainian, targetLanguage: .english)
+    var deckB = Deck(name: "B", sourceLanguage: .ukrainian, targetLanguage: .english)
+    try deckRepo.insert(&deckA)
+    try deckRepo.insert(&deckB)
+
+    let cardRepo = CardRepository(database: db)
+    let eventRepo = ReviewEventRepository(database: db)
+
+    var cardA = Card(deckId: deckA.id!, sourceValue: "так", targetValue: "yes")
+    var cardB = Card(deckId: deckB.id!, sourceValue: "ні", targetValue: "no")
+    try cardRepo.insert(&cardA)
+    try cardRepo.insert(&cardB)
+
+    var eA = ReviewEvent(cardId: cardA.id!, rating: 3, direction: .sourceToTarget, timeToRevealSeconds: 1.0)
+    var eB = ReviewEvent(cardId: cardB.id!, rating: 3, direction: .sourceToTarget, timeToRevealSeconds: 1.0)
+    try eventRepo.insert(&eA)
+    try eventRepo.insert(&eB)
+
+    let count = try eventRepo.fetchTodayNewCardCount(deckIds: [deckA.id!])
+    #expect(count == 1)
+}
+
 @Test func reviewEventCascadesOnCardDelete() throws {
     let db = try DatabaseManager.inMemory()
     let deck = try makeTestDeck(in: db)
