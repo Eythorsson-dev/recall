@@ -10,6 +10,8 @@ struct StudySetupView: View {
     @State private var selectedDeckIds: Set<Int64> = []
     @State private var direction: StudyDirection? = nil
     @State private var studyMode: StudyMode = .reading
+
+    private var settingsRepo: SettingsRepository { SettingsRepository(database: database) }
     @State private var dueCount = 0
     @State private var totalCount = 0
     @State private var isStudying = false
@@ -39,9 +41,17 @@ struct StudySetupView: View {
             )
         }
         .onChange(of: selectedDeckIds) { loadDueCount() }
-        .onChange(of: direction) { loadDueCount() }
+        .onChange(of: direction) {
+            loadDueCount()
+            try? settingsRepo.setStudyDirection(direction)
+        }
+        .onChange(of: studyMode) {
+            try? settingsRepo.setStudyMode(studyMode)
+        }
         .onAppear {
             selectedDeckIds = Set(decks.compactMap(\.id))
+            direction = (try? settingsRepo.studyDirection()) ?? nil
+            studyMode = (try? settingsRepo.studyMode()) ?? .reading
             loadDueCount()
         }
     }
