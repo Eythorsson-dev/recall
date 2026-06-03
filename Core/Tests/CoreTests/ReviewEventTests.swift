@@ -68,10 +68,12 @@ private func makeTestDeck(in db: DatabaseManager) throws -> Deck {
     try cardRepo.insert(&card2)
     try cardRepo.insert(&card3)
 
-    // Make all three sourceToTarget rows due so they form the queue.
+    // Advance all three sourceToTarget rows past fsrsState 0 via a real scheduling step,
+    // then backdate their due so they appear in the queue.
     let dueDate = Date().addingTimeInterval(-3600)
     for card in [card1, card2, card3] {
         var p = try progressRepo.fetch(cardId: card.id!, direction: .sourceToTarget)!
+        p = scheduler.schedule(progress: p, rating: .good)
         p.due = dueDate
         try progressRepo.update(&p)
     }
@@ -81,6 +83,16 @@ private func makeTestDeck(in db: DatabaseManager) throws -> Deck {
         direction: .sourceToTarget
     )
     #expect(queue.count == 3)
+
+    // Snapshot untouched cards' state before the session
+    let untouchedIds = queue.dropFirst().map(\.cardId)
+    var preSessionReps: [Int64: Int] = [:]
+    var preSessionStability: [Int64: Double] = [:]
+    for id in untouchedIds {
+        let p = try progressRepo.fetch(cardId: id, direction: .sourceToTarget)!
+        preSessionReps[id] = p.reps
+        preSessionStability[id] = p.stability
+    }
 
     // Replay StudySessionView.rateCard for the first card only, then "abort".
     let first = queue[0]
@@ -97,25 +109,24 @@ private func makeTestDeck(in db: DatabaseManager) throws -> Deck {
     )
     try eventRepo.insert(&event)
 
-    // Rated card: exactly one event + stats advanced.
+    // Rated card: exactly one event + stats advanced beyond the pre-session state.
     let firstEvents = try eventRepo.fetchAll(forCard: first.cardId)
     #expect(firstEvents.count == 1)
     #expect(firstEvents[0].rating == Int(Rating.good.rawValue))
     #expect(firstEvents[0].direction == .sourceToTarget)
 
     let firstProgress = try progressRepo.fetch(cardId: first.cardId, direction: .sourceToTarget)!
-    #expect(firstProgress.reps == 1)
+    #expect(firstProgress.reps == 2)
     #expect(firstProgress.stability > 0)
     #expect(firstProgress.lastReview != nil)
 
-    // Untouched cards: no events, reps unchanged.
-    let untouched = queue.dropFirst()
-    for row in untouched {
-        let events = try eventRepo.fetchAll(forCard: row.cardId)
+    // Untouched cards: no events, reps/stability unchanged from before the session.
+    for id in untouchedIds {
+        let events = try eventRepo.fetchAll(forCard: id)
         #expect(events.isEmpty)
-        let p = try progressRepo.fetch(cardId: row.cardId, direction: .sourceToTarget)!
-        #expect(p.reps == 0)
-        #expect(p.stability == 0)
+        let p = try progressRepo.fetch(cardId: id, direction: .sourceToTarget)!
+        #expect(p.reps == preSessionReps[id])
+        #expect(p.stability == preSessionStability[id])
     }
 }
 

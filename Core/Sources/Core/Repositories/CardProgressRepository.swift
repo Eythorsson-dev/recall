@@ -60,6 +60,7 @@ public struct CardProgressRepository: Sendable {
             var query = CardProgress
                 .filter(cardIds.contains(Column("cardId")))
                 .filter(Column("due") <= date)
+                .filter(Column("fsrsState") != 0)
                 .order(Column("due").asc)
 
             if let dir = direction {

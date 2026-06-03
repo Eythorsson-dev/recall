@@ -61,9 +61,9 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     let deck = try makeTestDeck(in: db)
     let repo = CardProgressRepository(database: db)
     let cardRepo = CardRepository(database: db)
+    let scheduler = StudyScheduler()
     let now = Date()
     // cutoff is 30 min ago; only the explicitly-overdue row (1 hour ago) falls before it.
-    // Default CardProgress.due ≈ Date() which is after the cutoff, avoiding the race.
     let cutoff = now.addingTimeInterval(-1800)
 
     var card1 = Card(deckId: deck.id!, sourceValue: "так", targetValue: "yes")
@@ -71,7 +71,9 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     try cardRepo.insert(&card1)
     try cardRepo.insert(&card2)
 
+    // Advance card1 past fsrsState 0, then backdate its due so it's overdue
     var progress = try repo.fetch(cardId: card1.id!, direction: .sourceToTarget)!
+    progress = scheduler.schedule(progress: progress, rating: .good)
     progress.due = now.addingTimeInterval(-3600)
     try repo.update(&progress)
 
@@ -86,20 +88,22 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     let deck = try makeTestDeck(in: db)
     let repo = CardProgressRepository(database: db)
     let cardRepo = CardRepository(database: db)
+    let scheduler = StudyScheduler()
     let now = Date()
 
     var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
     try cardRepo.insert(&card)
 
-    // Make targetToSource more overdue than sourceToTarget
+    // Advance both directions past fsrsState 0, then set different due dates
     var s = try repo.fetch(cardId: card.id!, direction: .sourceToTarget)!
     var t = try repo.fetch(cardId: card.id!, direction: .targetToSource)!
+    s = scheduler.schedule(progress: s, rating: .good)
+    t = scheduler.schedule(progress: t, rating: .good)
+    // Make targetToSource more overdue than sourceToTarget
     s.due = now.addingTimeInterval(-3600)
     t.due = now.addingTimeInterval(-7200)
-    try db.writer.write { dbConn in
-        try s.update(dbConn)
-        try t.update(dbConn)
-    }
+    try repo.update(&s)
+    try repo.update(&t)
 
     let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: Date())
     #expect(due.count == 1)
@@ -111,14 +115,17 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     let deck = try makeTestDeck(in: db)
     let repo = CardProgressRepository(database: db)
     let cardRepo = CardRepository(database: db)
+    let scheduler = StudyScheduler()
     let dueDate = Date().addingTimeInterval(-3600)
 
     var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
     try cardRepo.insert(&card)
 
-    // Both directions have the exact same due date
+    // Advance both directions past fsrsState 0, then set the same due date
     var s = try repo.fetch(cardId: card.id!, direction: .sourceToTarget)!
     var t = try repo.fetch(cardId: card.id!, direction: .targetToSource)!
+    s = scheduler.schedule(progress: s, rating: .good)
+    t = scheduler.schedule(progress: t, rating: .good)
     s.due = dueDate
     t.due = dueDate
     try repo.update(&s)
@@ -134,14 +141,17 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     let deck = try makeTestDeck(in: db)
     let repo = CardProgressRepository(database: db)
     let cardRepo = CardRepository(database: db)
+    let scheduler = StudyScheduler()
     let now = Date()
 
     var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
     try cardRepo.insert(&card)
 
-    // Make both directions overdue
+    // Advance both directions past fsrsState 0, then make both overdue
     var s = try repo.fetch(cardId: card.id!, direction: .sourceToTarget)!
     var t = try repo.fetch(cardId: card.id!, direction: .targetToSource)!
+    s = scheduler.schedule(progress: s, rating: .good)
+    t = scheduler.schedule(progress: t, rating: .good)
     s.due = now.addingTimeInterval(-3600)
     t.due = now.addingTimeInterval(-7200)
     try repo.update(&s)
@@ -151,6 +161,26 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: .sourceToTarget, before: now)
     #expect(due.count == 1)
     #expect(due[0].direction == .sourceToTarget)
+}
+
+@Test func fetchDueForSessionExcludesNewCards() throws {
+    // Regression: new cards (fsrsState == 0) have due = createdAt (past), so they satisfied
+    // fetchDueForSession's "due <= now" filter and also fetchNewCards's "fsrsState == 0" filter,
+    // causing the same card+direction to appear twice in the interleaved queue.
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardProgressRepository(database: db)
+    let cardRepo = CardRepository(database: db)
+
+    var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
+    try cardRepo.insert(&card)
+
+    // New card: fsrsState == 0, due date is in the past (the default)
+    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: Date())
+    #expect(due.isEmpty, "new cards must not appear in the due queue")
+
+    let newCards = try repo.fetchNewCards(deckIds: [deck.id!], direction: nil, limit: 10)
+    #expect(newCards.count == 2) // both directions
 }
 
 @Test func fetchNewCardsReturnsOnlyFsrsStateZero() throws {
