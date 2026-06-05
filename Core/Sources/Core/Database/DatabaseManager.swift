@@ -301,6 +301,13 @@ public final class DatabaseManager: Sendable {
             )
         }
 
+        migrator.registerMigration("v10_settings") { db in
+            try db.create(table: "settings") { t in
+                t.primaryKey("key", .text)
+                t.column("value", .text).notNull()
+            }
+        }
+
         try migrator.migrate(writer)
     }
 }
