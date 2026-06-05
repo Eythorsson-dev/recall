@@ -41,6 +41,7 @@ public struct CardProgressRepository: Sendable {
     /// Due CardProgress rows for the session queue, with sibling suppression when direction is nil.
     /// Sibling suppression: if both directions of the same card are due, only the more overdue
     /// one enters the queue. Tiebreaker: prefer sourceToTarget unless direction is explicitly targetToSource.
+    /// Results are ordered by ascending retrievability (most-forgotten first).
     public func fetchDueForSession(
         deckIds: [Int64],
         direction: StudyDirection?,
@@ -61,7 +62,6 @@ public struct CardProgressRepository: Sendable {
                 .filter(cardIds.contains(Column("cardId")))
                 .filter(Column("due") <= date)
                 .filter(Column("fsrsState") != 0)
-                .order(Column("due").asc)
 
             if let dir = direction {
                 query = query.filter(Column("direction") == dir.rawValue)
@@ -70,8 +70,10 @@ public struct CardProgressRepository: Sendable {
             return try query.fetchAll(dbConn)
         }
 
-        guard direction == nil else { return rows }
-        return applySiblingSupression(rows, tiebreaker: .sourceToTarget)
+        guard direction == nil else {
+            return rows.sorted { retrievability($0, at: date) < retrievability($1, at: date) }
+        }
+        return applySiblingSupression(rows, tiebreaker: .sourceToTarget, at: date)
     }
 
     /// All CardProgress rows for practice mode (no due filter, no sibling suppression).
@@ -151,7 +153,8 @@ public struct CardProgressRepository: Sendable {
 
     private func applySiblingSupression(
         _ rows: [CardProgress],
-        tiebreaker: StudyDirection
+        tiebreaker: StudyDirection,
+        at date: Date
     ) -> [CardProgress] {
         var byCard: [Int64: [CardProgress]] = [:]
         for row in rows {
@@ -160,13 +163,24 @@ public struct CardProgressRepository: Sendable {
 
         let deduplicated = byCard.values.map { siblings -> CardProgress in
             guard siblings.count > 1 else { return siblings[0] }
-            let sorted = siblings.sorted { $0.due < $1.due }
-            if sorted[0].due < sorted[1].due {
+            let sorted = siblings.sorted { retrievability($0, at: date) < retrievability($1, at: date) }
+            if retrievability(sorted[0], at: date) < retrievability(sorted[1], at: date) {
                 return sorted[0]
             }
             return siblings.first { $0.direction == tiebreaker } ?? siblings[0]
         }
 
-        return deduplicated.sorted { $0.due < $1.due }
+        return deduplicated.sorted { retrievability($0, at: date) < retrievability($1, at: date) }
+    }
+
+    // FSRS-5 retrievability: R(t, S) = (1 + factor·t/S)^decay
+    // Lower value = more likely forgotten = higher urgency.
+    private static let fsrsDecay: Double = -0.5
+    private static let fsrsFactor: Double = pow(0.9, 1.0 / fsrsDecay) - 1  // 19/81
+
+    private func retrievability(_ progress: CardProgress, at date: Date) -> Double {
+        guard let lastReview = progress.lastReview, progress.stability > 0 else { return 0 }
+        let elapsed = date.timeIntervalSince(lastReview) / 86400.0
+        return pow(1 + Self.fsrsFactor * elapsed / progress.stability, Self.fsrsDecay)
     }
 }
