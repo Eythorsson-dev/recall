@@ -54,14 +54,6 @@ import Foundation
     #expect(try repo.dailyCardLimit() == 10)
 }
 
-@Test func dailyCardLimitRoundTrips() throws {
-    let db = try DatabaseManager.inMemory()
-    let repo = SettingsRepository(database: db)
-
-    try repo.setDailyCardLimit(20)
-    #expect(try repo.dailyCardLimit() == 20)
-}
-
 @Test func settingsOverwritePreviousValue() throws {
     let db = try DatabaseManager.inMemory()
     let repo = SettingsRepository(database: db)

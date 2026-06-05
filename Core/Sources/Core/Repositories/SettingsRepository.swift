@@ -67,12 +67,4 @@ public struct SettingsRepository: Sendable {
         }
     }
 
-    public func setDailyCardLimit(_ limit: Int) throws {
-        try db.writer.write { dbConn in
-            try dbConn.execute(
-                sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('dailyCardLimit', ?)",
-                arguments: [String(limit)]
-            )
-        }
-    }
 }
