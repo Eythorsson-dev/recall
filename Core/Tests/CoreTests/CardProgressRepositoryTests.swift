@@ -94,18 +94,22 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
     try cardRepo.insert(&card)
 
-    // Advance both directions past fsrsState 0, then set different due dates
+    // Advance both directions past fsrsState 0
     var s = try repo.fetch(cardId: card.id!, direction: .sourceToTarget)!
     var t = try repo.fetch(cardId: card.id!, direction: .targetToSource)!
     s = scheduler.schedule(progress: s, rating: .good)
     t = scheduler.schedule(progress: t, rating: .good)
-    // Make targetToSource more overdue than sourceToTarget
+
+    // Both are due. targetToSource has an older lastReview → higher t/S → lower retrievability → more forgotten.
+    let stability = s.stability  // same for both after identical first review
+    s.lastReview = now.addingTimeInterval(-stability * 86400)
     s.due = now.addingTimeInterval(-3600)
-    t.due = now.addingTimeInterval(-7200)
+    t.lastReview = now.addingTimeInterval(-stability * 86400 * 3)
+    t.due = now.addingTimeInterval(-3600)
     try repo.update(&s)
     try repo.update(&t)
 
-    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: Date())
+    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: now)
     #expect(due.count == 1)
     #expect(due[0].direction == .targetToSource)
 }
@@ -116,22 +120,26 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     let repo = CardProgressRepository(database: db)
     let cardRepo = CardRepository(database: db)
     let scheduler = StudyScheduler()
-    let dueDate = Date().addingTimeInterval(-3600)
+    let now = Date()
+    let dueDate = now.addingTimeInterval(-3600)
 
     var card = Card(deckId: deck.id!, sourceValue: "привіт", targetValue: "hello")
     try cardRepo.insert(&card)
 
-    // Advance both directions past fsrsState 0, then set the same due date
+    // Advance both directions past fsrsState 0, then set identical lastReview + due to force a tie
     var s = try repo.fetch(cardId: card.id!, direction: .sourceToTarget)!
     var t = try repo.fetch(cardId: card.id!, direction: .targetToSource)!
     s = scheduler.schedule(progress: s, rating: .good)
     t = scheduler.schedule(progress: t, rating: .good)
+    let sharedLastReview = now.addingTimeInterval(-86400)
+    s.lastReview = sharedLastReview
     s.due = dueDate
+    t.lastReview = sharedLastReview
     t.due = dueDate
     try repo.update(&s)
     try repo.update(&t)
 
-    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: Date())
+    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: nil, before: now)
     #expect(due.count == 1)
     #expect(due[0].direction == .sourceToTarget)
 }
@@ -235,4 +243,44 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     #expect(forward[0].direction == .sourceToTarget)
     #expect(reverse.count == 1)
     #expect(reverse[0].direction == .targetToSource)
+}
+
+// Card A: 3-day interval, reviewed 4 days ago → t/S ≈ 1.33 (more forgotten, goes first)
+// Card B: 180-day interval, reviewed 31 days ago → t/S ≈ 0.17 (less forgotten, goes second)
+// Verifies that relative overdueness, not absolute due date, drives the queue order.
+@Test func sessionQueueOrderedByRelativeOverdueness() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardProgressRepository(database: db)
+    let cardRepo = CardRepository(database: db)
+    let scheduler = StudyScheduler()
+    let now = Date()
+
+    var cardA = Card(deckId: deck.id!, sourceValue: "так", targetValue: "yes")
+    var cardB = Card(deckId: deck.id!, sourceValue: "ні", targetValue: "no")
+    try cardRepo.insert(&cardA)
+    try cardRepo.insert(&cardB)
+
+    var pA = try repo.fetch(cardId: cardA.id!, direction: .sourceToTarget)!
+    var pB = try repo.fetch(cardId: cardB.id!, direction: .sourceToTarget)!
+    pA = scheduler.schedule(progress: pA, rating: .good)
+    pB = scheduler.schedule(progress: pB, rating: .good)
+
+    // Card A: short interval (3 days), reviewed 4 days ago → highly overdue relative to its interval
+    pA.stability = 3
+    pA.lastReview = now.addingTimeInterval(-86400 * 4)
+    pA.due = now.addingTimeInterval(-86400)
+
+    // Card B: long interval (180 days), reviewed 31 days ago → barely overdue relative to its interval
+    pB.stability = 180
+    pB.lastReview = now.addingTimeInterval(-86400 * 31)
+    pB.due = now.addingTimeInterval(-86400)
+
+    try repo.update(&pA)
+    try repo.update(&pB)
+
+    let due = try repo.fetchDueForSession(deckIds: [deck.id!], direction: .sourceToTarget, before: now)
+    #expect(due.count == 2)
+    #expect(due[0].cardId == cardA.id!, "Card A (higher decay) should appear first")
+    #expect(due[1].cardId == cardB.id!, "Card B (lower decay) should appear second")
 }
