@@ -48,12 +48,6 @@ import Foundation
     #expect(try repo.studyMode() == .reading)
 }
 
-@Test func dailyCardLimitDefaultsTen() throws {
-    let db = try DatabaseManager.inMemory()
-    let repo = SettingsRepository(database: db)
-    #expect(try repo.dailyCardLimit() == 10)
-}
-
 @Test func settingsOverwritePreviousValue() throws {
     let db = try DatabaseManager.inMemory()
     let repo = SettingsRepository(database: db)

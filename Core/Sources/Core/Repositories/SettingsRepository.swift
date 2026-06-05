@@ -53,18 +53,4 @@ public struct SettingsRepository: Sendable {
         }
     }
 
-    // MARK: - Daily Card Limit
-
-    public static let defaultDailyCardLimit = 10
-
-    public func dailyCardLimit() throws -> Int {
-        try db.reader.read { dbConn in
-            guard let raw = try String.fetchOne(dbConn, sql: "SELECT value FROM settings WHERE key = 'dailyCardLimit'"),
-                  let value = Int(raw) else {
-                return Self.defaultDailyCardLimit
-            }
-            return value
-        }
-    }
-
 }
