@@ -284,3 +284,31 @@ private func insertCard(deckId: Int64, in db: DatabaseManager) throws -> Card {
     #expect(due[0].cardId == cardA.id!, "Card A (higher decay) should appear first")
     #expect(due[1].cardId == cardB.id!, "Card B (lower decay) should appear second")
 }
+
+// With 20 cards inserted in ascending order, the probability of RANDOM() returning them
+// in the exact same order on every one of 10 independent calls is (1/20!)^9 ≈ 0. If this
+// test ever fails legitimately it means ORDER BY RANDOM() was replaced with a deterministic sort.
+@Test func fetchNewCardsAreReturnedInRandomOrder() throws {
+    let db = try DatabaseManager.inMemory()
+    let deck = try makeTestDeck(in: db)
+    let repo = CardProgressRepository(database: db)
+    let cardRepo = CardRepository(database: db)
+
+    for i in 0..<20 {
+        var card = Card(deckId: deck.id!, sourceValue: "word\(i)", targetValue: "trans\(i)")
+        try cardRepo.insert(&card)
+    }
+
+    let first = try repo.fetchNewCards(deckIds: [deck.id!], direction: .sourceToTarget, limit: 20)
+    let firstIds = first.map(\.cardId)
+
+    var sawDifferentOrder = false
+    for _ in 0..<10 {
+        let result = try repo.fetchNewCards(deckIds: [deck.id!], direction: .sourceToTarget, limit: 20)
+        if result.map(\.cardId) != firstIds {
+            sawDifferentOrder = true
+            break
+        }
+    }
+    #expect(sawDifferentOrder, "fetchNewCards should not always return cards in the same order")
+}

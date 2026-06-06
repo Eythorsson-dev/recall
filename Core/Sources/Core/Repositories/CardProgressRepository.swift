@@ -131,7 +131,7 @@ public struct CardProgressRepository: Sendable {
             var query = CardProgress
                 .filter(cardIds.contains(Column("cardId")))
                 .filter(Column("fsrsState") == 0)
-                .order(Column("cardId").asc)
+                .order(SQL("RANDOM()"))
                 .limit(limit)
             if let dir = direction {
                 query = query.filter(Column("direction") == dir.rawValue)
