@@ -30,6 +30,7 @@ struct CardEditorView: View {
     @State private var targetValueIsUserModified: Bool = false
     @State private var isTranslating = false
     @State private var translationFailed = false
+    @State private var translationDebounceTask: Task<Void, Never>?
 
     @FocusState private var focusedField: FieldKey?
 
@@ -91,7 +92,18 @@ struct CardEditorView: View {
                 }
             }
             .onChange(of: focusedField) { oldValue, _ in
-                if oldValue == .source { triggerTranslation() }
+                if oldValue == .source {
+                    translationDebounceTask?.cancel()
+                    triggerTranslation()
+                }
+            }
+            .onChange(of: sourceValue) { _, _ in
+                translationDebounceTask?.cancel()
+                translationDebounceTask = Task {
+                    try? await Task.sleep(for: .milliseconds(800))
+                    guard !Task.isCancelled else { return }
+                    triggerTranslation()
+                }
             }
             .onChange(of: targetValue) { _, newValue in
                 if newValue.isEmpty {
@@ -335,6 +347,7 @@ struct CardEditorView: View {
     private func triggerTranslation() {
         guard !targetValueIsUserModified,
               !sourceValue.isEmpty,
+              !isTranslating,
               let service = translationService else { return }
 
         isTranslating = true
