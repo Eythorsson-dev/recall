@@ -8,6 +8,7 @@ struct StudySessionView: View {
     let selectedDeckIds: [Int64]
     let direction: StudyDirection?
     let studyMode: StudyMode
+    let reviewLimit: Int?
     let ttsPlayer: TTSPlayer
     let onSessionEnded: () -> Void
     @Environment(\.dismiss) private var dismiss
@@ -20,8 +21,10 @@ struct StudySessionView: View {
     @State private var sessionComplete = false
     @State private var audioPlayCount = 0
     @State private var learnMoreCards: [CardProgress] = []
+    @State private var nextSessionIsContinue = false
 
     private let scheduler = StudyScheduler()
+    private static let dailyNewCardLimit = 10
 
     var body: some View {
         Group {
@@ -238,16 +241,10 @@ struct StudySessionView: View {
     }
 
     private func fetchLearnMoreCards() {
-        let progressRepo = CardProgressRepository(database: database)
-        let cardRepo = CardRepository(database: database)
         do {
-            let cards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: 4)
-            for card in cards {
-                if let c = try cardRepo.fetchById(card.cardId) {
-                    cardLookup[card.cardId] = c
-                }
-            }
-            learnMoreCards = cards
+            let (items, isContinue) = try buildQueue(bypassDailyCap: true)
+            learnMoreCards = items
+            nextSessionIsContinue = isContinue
         } catch {
             learnMoreCards = []
         }
@@ -273,42 +270,59 @@ struct StudySessionView: View {
             Text("You reviewed \(queue.count) card\(queue.count == 1 ? "" : "s").")
                 .foregroundStyle(.secondary)
             if !learnMoreCards.isEmpty {
-                Button("Learn more") { learnMore() }
-                    .buttonStyle(.bordered)
+                Button(nextSessionIsContinue ? "Continue" : "Learn more") { learnMore() }
+                    .buttonStyle(.borderedProminent)
             }
             Button("Done") { onSessionEnded() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
         }
     }
 
     private func loadQueue() {
-        let progressRepo = CardProgressRepository(database: database)
-        let eventRepo = ReviewEventRepository(database: database)
-        let cardRepo = CardRepository(database: database)
-
+        cardLookup = [:]
         do {
-            let due = try progressRepo.fetchDueForSession(deckIds: selectedDeckIds, direction: direction)
-            let todayNewCount = try eventRepo.fetchTodayNewCardCount(deckIds: selectedDeckIds)
-            let newLimit = max(0, 10 - todayNewCount)
-            let newCards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: newLimit)
-            let progressItems = interleave(due: due, new: newCards)
-
-            queue = progressItems
-
-            let cardIds = Set(progressItems.map(\.cardId))
-            var lookup: [Int64: Card] = [:]
-            for cardId in cardIds {
-                if let card = try cardRepo.fetchById(cardId) {
-                    lookup[cardId] = card
-                }
-            }
-            cardLookup = lookup
-
+            let (items, _) = try buildQueue()
+            queue = items
             if queue.isEmpty { sessionComplete = true }
         } catch {
             print("Load queue error: \(error)")
             sessionComplete = true
         }
+    }
+
+    private func buildQueue(bypassDailyCap: Bool = false) throws -> (items: [CardProgress], isContinue: Bool) {
+        let progressRepo = CardProgressRepository(database: database)
+        let eventRepo = ReviewEventRepository(database: database)
+        let cardRepo = CardRepository(database: database)
+
+        let due = try progressRepo.fetchDueForSession(deckIds: selectedDeckIds, direction: direction)
+        let dailyNewRemaining = max(0, Self.dailyNewCardLimit - (try eventRepo.fetchTodayNewCardCount(deckIds: selectedDeckIds)))
+
+        var items: [CardProgress]
+        let isContinue: Bool
+
+        if !due.isEmpty {
+            let newCards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: dailyNewRemaining)
+            items = interleave(due: due, new: newCards)
+            isContinue = true
+        } else if dailyNewRemaining > 0 {
+            items = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: dailyNewRemaining)
+            isContinue = true
+        } else if bypassDailyCap {
+            items = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: reviewLimit ?? Self.dailyNewCardLimit)
+            isContinue = false
+        } else {
+            items = []
+            isContinue = false
+        }
+
+        if let cap = reviewLimit { items = Array(items.prefix(cap)) }
+
+        for item in items where cardLookup[item.cardId] == nil {
+            if let c = try cardRepo.fetchById(item.cardId) { cardLookup[item.cardId] = c }
+        }
+
+        return (items, isContinue)
     }
 
     private func interleave(due: [CardProgress], new: [CardProgress]) -> [CardProgress] {
