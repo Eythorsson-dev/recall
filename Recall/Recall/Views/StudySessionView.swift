@@ -273,7 +273,7 @@ struct StudySessionView: View {
                     .buttonStyle(.borderedProminent)
             }
             Button("Done") { dismiss() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
         }
     }
 
