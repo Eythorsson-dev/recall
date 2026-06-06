@@ -10,7 +10,6 @@ struct StudySessionView: View {
     let studyMode: StudyMode
     let reviewLimit: Int?
     let ttsPlayer: TTSPlayer
-    let onSessionEnded: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var queue: [CardProgress] = []
@@ -273,7 +272,7 @@ struct StudySessionView: View {
                 Button(nextSessionIsContinue ? "Continue" : "Learn more") { learnMore() }
                     .buttonStyle(.borderedProminent)
             }
-            Button("Done") { onSessionEnded() }
+            Button("Done") { dismiss() }
                 .buttonStyle(.bordered)
         }
     }
