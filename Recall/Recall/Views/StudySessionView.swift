@@ -8,6 +8,7 @@ struct StudySessionView: View {
     let selectedDeckIds: [Int64]
     let direction: StudyDirection?
     let studyMode: StudyMode
+    let reviewLimit: Int?
     let ttsPlayer: TTSPlayer
     let onSessionEnded: () -> Void
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +21,7 @@ struct StudySessionView: View {
     @State private var sessionComplete = false
     @State private var audioPlayCount = 0
     @State private var learnMoreCards: [CardProgress] = []
+    @State private var nextSessionIsContinue = false
 
     private let scheduler = StudyScheduler()
 
@@ -239,15 +241,37 @@ struct StudySessionView: View {
 
     private func fetchLearnMoreCards() {
         let progressRepo = CardProgressRepository(database: database)
+        let eventRepo = ReviewEventRepository(database: database)
         let cardRepo = CardRepository(database: database)
         do {
-            let cards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: 4)
-            for card in cards {
-                if let c = try cardRepo.fetchById(card.cardId) {
-                    cardLookup[card.cardId] = c
-                }
+            let due = try progressRepo.fetchDueForSession(deckIds: selectedDeckIds, direction: direction)
+            let todayNewCount = try eventRepo.fetchTodayNewCardCount(deckIds: selectedDeckIds)
+            let dailyNewRemaining = max(0, 10 - todayNewCount)
+
+            var nextItems: [CardProgress]
+            var isContinue: Bool
+
+            if !due.isEmpty {
+                // Due cards remain — Continue respects the cap
+                let newCards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: dailyNewRemaining)
+                nextItems = interleave(due: due, new: newCards)
+                isContinue = true
+            } else if dailyNewRemaining > 0 {
+                // Caught up on due, but still within daily new-card cap — Continue
+                nextItems = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: dailyNewRemaining)
+                isContinue = true
+            } else {
+                // All caught up and daily cap exhausted — Learn more bypasses cap
+                nextItems = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: reviewLimit ?? 50)
+                isContinue = false
             }
-            learnMoreCards = cards
+
+            if let cap = reviewLimit { nextItems = Array(nextItems.prefix(cap)) }
+            for item in nextItems {
+                if let c = try cardRepo.fetchById(item.cardId) { cardLookup[item.cardId] = c }
+            }
+            learnMoreCards = nextItems
+            nextSessionIsContinue = isContinue
         } catch {
             learnMoreCards = []
         }
@@ -273,11 +297,11 @@ struct StudySessionView: View {
             Text("You reviewed \(queue.count) card\(queue.count == 1 ? "" : "s").")
                 .foregroundStyle(.secondary)
             if !learnMoreCards.isEmpty {
-                Button("Learn more") { learnMore() }
-                    .buttonStyle(.bordered)
+                Button(nextSessionIsContinue ? "Continue" : "Learn more") { learnMore() }
+                    .buttonStyle(.borderedProminent)
             }
             Button("Done") { onSessionEnded() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
         }
     }
 
@@ -291,7 +315,8 @@ struct StudySessionView: View {
             let todayNewCount = try eventRepo.fetchTodayNewCardCount(deckIds: selectedDeckIds)
             let newLimit = max(0, 10 - todayNewCount)
             let newCards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: newLimit)
-            let progressItems = interleave(due: due, new: newCards)
+            var progressItems = interleave(due: due, new: newCards)
+            if let cap = reviewLimit { progressItems = Array(progressItems.prefix(cap)) }
 
             queue = progressItems
 

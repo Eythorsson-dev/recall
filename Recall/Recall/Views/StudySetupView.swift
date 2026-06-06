@@ -10,6 +10,7 @@ struct StudySetupView: View {
     @State private var selectedDeckIds: Set<Int64> = []
     @State private var direction: StudyDirection? = nil
     @State private var studyMode: StudyMode = .reading
+    @State private var reviewLimit: Int? = nil
 
     private var settingsRepo: SettingsRepository { SettingsRepository(database: database) }
     @State private var dueCount = 0
@@ -22,6 +23,7 @@ struct StudySetupView: View {
                 deckSection
                 directionSection
                 studyModeSection
+                reviewLimitSection
                 statsSection
                 beginButton
             }
@@ -36,6 +38,7 @@ struct StudySetupView: View {
                 selectedDeckIds: Array(selectedDeckIds),
                 direction: direction,
                 studyMode: studyMode,
+                reviewLimit: reviewLimit,
                 ttsPlayer: ttsPlayer,
                 onSessionEnded: { dismiss() }
             )
@@ -48,10 +51,14 @@ struct StudySetupView: View {
         .onChange(of: studyMode) {
             try? settingsRepo.setStudyMode(studyMode)
         }
+        .onChange(of: reviewLimit) {
+            try? settingsRepo.setReviewLimit(reviewLimit)
+        }
         .onAppear {
             selectedDeckIds = Set(decks.compactMap(\.id))
             direction = (try? settingsRepo.studyDirection()) ?? nil
             studyMode = (try? settingsRepo.studyMode()) ?? .reading
+            reviewLimit = try? settingsRepo.reviewLimit()
             loadDueCount()
         }
     }
@@ -85,6 +92,15 @@ struct StudySetupView: View {
             sectionLabel("Study Mode")
                 .padding(.top, 30)
             StudyModeToggles(selection: $studyMode)
+                .padding(.horizontal, 20)
+        }
+    }
+
+    private var reviewLimitSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionLabel("Reviews per session")
+                .padding(.top, 30)
+            ReviewLimitField(limit: $reviewLimit)
                 .padding(.horizontal, 20)
         }
     }
@@ -324,6 +340,58 @@ private struct StudyModeToggles: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Review Limit Field
+
+private struct ReviewLimitField: View {
+    @Binding var limit: Int?
+    @State private var text: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.14))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "number")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Limit")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary)
+                Text("Leave blank to review all due cards.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            TextField("All", text: $text)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+                .font(.system(size: 17, weight: .medium, design: .rounded))
+                .foregroundStyle(limit == nil ? Color.secondary : Color.primary)
+                .frame(width: 64)
+                .focused($isFocused)
+                .onChange(of: text) { _, newValue in
+                    let digits = newValue.filter(\.isNumber)
+                    if digits != newValue { text = digits }
+                    limit = digits.isEmpty ? nil : Int(digits)
+                }
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .onAppear {
+            text = limit.map(String.init) ?? ""
+        }
     }
 }
 

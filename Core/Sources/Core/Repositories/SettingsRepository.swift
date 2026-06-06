@@ -32,6 +32,31 @@ public struct SettingsRepository: Sendable {
         }
     }
 
+    // MARK: - Review Limit
+
+    public func reviewLimit() throws -> Int? {
+        try db.reader.read { dbConn in
+            guard let raw = try String.fetchOne(dbConn, sql: "SELECT value FROM settings WHERE key = 'reviewLimit'"),
+                  let value = Int(raw) else {
+                return nil
+            }
+            return value
+        }
+    }
+
+    public func setReviewLimit(_ limit: Int?) throws {
+        try db.writer.write { dbConn in
+            if let limit {
+                try dbConn.execute(
+                    sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('reviewLimit', ?)",
+                    arguments: [String(limit)]
+                )
+            } else {
+                try dbConn.execute(sql: "DELETE FROM settings WHERE key = 'reviewLimit'")
+            }
+        }
+    }
+
     // MARK: - Study Mode
 
     public func studyMode() throws -> StudyMode {
