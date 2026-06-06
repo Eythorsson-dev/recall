@@ -39,8 +39,7 @@ struct StudySetupView: View {
                 direction: direction,
                 studyMode: studyMode,
                 reviewLimit: reviewLimit,
-                ttsPlayer: ttsPlayer,
-                onSessionEnded: { dismiss() }
+                ttsPlayer: ttsPlayer
             )
         }
         .onChange(of: selectedDeckIds) { loadDueCount() }
