@@ -379,6 +379,9 @@ private struct ReviewLimitField: View {
                 .foregroundStyle(limit == nil ? Color.secondary : Color.primary)
                 .frame(width: 64)
                 .focused($isFocused)
+                .onChange(of: isFocused) { _, focused in
+                    if focused { DispatchQueue.main.async { UIApplication.shared.sendAction(#selector(UIResponder.selectAll(_:)), to: nil, from: nil, for: nil) } }
+                }
                 .onChange(of: text) { _, newValue in
                     let digits = newValue.filter(\.isNumber)
                     if digits != newValue { text = digits }
