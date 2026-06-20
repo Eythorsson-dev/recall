@@ -1,12 +1,6 @@
 import SwiftUI
 import Core
 
-struct SentencePair: Identifiable, Hashable {
-    let id = UUID()
-    let source: String
-    let target: String
-}
-
 struct GenerationReviewSheet: View {
     let database: DatabaseManager
     let deck: Deck
@@ -14,7 +8,7 @@ struct GenerationReviewSheet: View {
     let ttsQueue: TTSGenerationQueue?
 
     @Environment(\.dismiss) private var dismiss
-    @State private var pending: [SentencePair] = []
+    @State private var batch = PendingGenerationBatch(sentences: [])
     @State private var phase: Phase = .idle
     @State private var errorMessage: String?
 
@@ -30,8 +24,8 @@ struct GenerationReviewSheet: View {
             ZStack(alignment: .bottom) {
                 List {
                     Section {
-                        ForEach(pending) { pair in
-                            sentenceRow(pair)
+                        ForEach(Array(batch.sentences.indices), id: \.self) { index in
+                            sentenceRow(batch.sentences[index])
                                 .listRowBackground(Color.clear)
                                 .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
                                 .listRowSeparator(.hidden)
@@ -85,7 +79,7 @@ struct GenerationReviewSheet: View {
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage ?? "Something went wrong.")
             )
-        case .loaded where pending.isEmpty:
+        case .loaded where batch.sentences.isEmpty:
             ContentUnavailableView(
                 "No Sentences",
                 systemImage: "text.bubble",
@@ -96,12 +90,12 @@ struct GenerationReviewSheet: View {
         }
     }
 
-    private func sentenceRow(_ pair: SentencePair) -> some View {
+    private func sentenceRow(_ sentence: GeneratedSentence) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(pair.source)
+            Text(sentence.source)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.primary)
-            Text(pair.target)
+            Text(sentence.target)
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
         }
@@ -110,6 +104,14 @@ struct GenerationReviewSheet: View {
         .padding(.vertical, 13)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var newWordsFooterText: String? {
+        let words = batch.activeNewWords
+        guard !words.isEmpty else { return nil }
+        let list = words.map(\.source).joined(separator: ", ")
+        let pluralized = words.count == 1 ? "new word" : "new words"
+        return "Adding \(words.count) \(pluralized): \(list)"
     }
 
     private var acceptBar: some View {
@@ -122,6 +124,16 @@ struct GenerationReviewSheet: View {
             .frame(height: 24)
             .allowsHitTesting(false)
 
+            if let footer = newWordsFooterText {
+                Text(footer)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 10)
+                    .background(Color(.systemGroupedBackground))
+            }
+
             Button {
                 acceptAll()
             } label: {
@@ -133,32 +145,31 @@ struct GenerationReviewSheet: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(pending.isEmpty ? AnyShapeStyle(Color.secondary.opacity(0.35)) : AnyShapeStyle(Color.accentColor))
+                .background(batch.sentences.isEmpty ? AnyShapeStyle(Color.secondary.opacity(0.35)) : AnyShapeStyle(Color.accentColor))
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 20)
             }
-            .disabled(pending.isEmpty)
+            .disabled(batch.sentences.isEmpty)
             .padding(.bottom, 12)
             .background(Color(.systemGroupedBackground))
         }
     }
 
     private func deleteRows(at offsets: IndexSet) {
-        pending.remove(atOffsets: offsets)
+        batch.remove(atOffsets: offsets)
     }
 
     private func acceptAll() {
-        guard let deckId = deck.id, !pending.isEmpty else { return }
-        let repo = CardRepository(database: database)
-        for pair in pending {
-            var card = Card(
-                deckId: deckId,
-                sourceValue: pair.source,
-                targetValue: pair.target,
-                targetValueIsUserModified: true,
-                kind: .sentence
-            )
-            try? repo.insert(&card)
+        guard let deckId = deck.id, !batch.sentences.isEmpty else { return }
+        var cards = batch.materializeCards(deckId: deckId)
+        do {
+            try CardRepository(database: database).insertAll(&cards)
+        } catch {
+            errorMessage = "Couldn't save: \(error.localizedDescription)"
+            phase = .failed
+            return
+        }
+        for card in cards {
             enqueueTTS(forCard: card)
         }
         if let queue = ttsQueue {
@@ -198,7 +209,7 @@ struct GenerationReviewSheet: View {
         }
         do {
             let result = try await generator.generate(deck: deck)
-            pending = result.sentences.map { SentencePair(source: $0.source, target: $0.target) }
+            batch = PendingGenerationBatch(sentences: result.sentences)
             phase = .loaded
         } catch {
             errorMessage = String(describing: error)
