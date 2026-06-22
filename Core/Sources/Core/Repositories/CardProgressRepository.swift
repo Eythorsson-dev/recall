@@ -45,17 +45,13 @@ public struct CardProgressRepository: Sendable {
     public func fetchDueForSession(
         deckIds: [Int64],
         direction: StudyDirection?,
+        tagIds: [Int64] = [],
         before date: Date = Date()
     ) throws -> [CardProgress] {
         guard !deckIds.isEmpty else { return [] }
 
         let rows = try db.reader.read { dbConn -> [CardProgress] in
-            let placeholders = deckIds.map { _ in "?" }.joined(separator: ",")
-            let cardIds = try Int64.fetchAll(
-                dbConn,
-                sql: "SELECT id FROM card WHERE deckId IN (\(placeholders)) AND deletedAt IS NULL",
-                arguments: StatementArguments(deckIds)
-            )
+            let cardIds = try self.fetchCardIds(dbConn: dbConn, deckIds: deckIds, tagIds: tagIds)
             guard !cardIds.isEmpty else { return [] }
 
             var query = CardProgress
@@ -79,17 +75,13 @@ public struct CardProgressRepository: Sendable {
     /// All CardProgress rows for practice mode (no due filter, no sibling suppression).
     public func fetchAllForSession(
         deckIds: [Int64],
-        direction: StudyDirection?
+        direction: StudyDirection?,
+        tagIds: [Int64] = []
     ) throws -> [CardProgress] {
         guard !deckIds.isEmpty else { return [] }
 
         return try db.reader.read { dbConn -> [CardProgress] in
-            let placeholders = deckIds.map { _ in "?" }.joined(separator: ",")
-            let cardIds = try Int64.fetchAll(
-                dbConn,
-                sql: "SELECT id FROM card WHERE deckId IN (\(placeholders)) AND deletedAt IS NULL",
-                arguments: StatementArguments(deckIds)
-            )
+            let cardIds = try self.fetchCardIds(dbConn: dbConn, deckIds: deckIds, tagIds: tagIds)
             guard !cardIds.isEmpty else { return [] }
 
             var query = CardProgress
@@ -108,25 +100,22 @@ public struct CardProgressRepository: Sendable {
     public func fetchDueCount(
         deckIds: [Int64],
         direction: StudyDirection?,
+        tagIds: [Int64] = [],
         before date: Date = Date()
     ) throws -> Int {
-        try fetchDueForSession(deckIds: deckIds, direction: direction, before: date).count
+        try fetchDueForSession(deckIds: deckIds, direction: direction, tagIds: tagIds, before: date).count
     }
 
     /// CardProgress rows with fsrsState = 0 (never reviewed) in the given decks, up to `limit`.
     public func fetchNewCards(
         deckIds: [Int64],
         direction: StudyDirection?,
+        tagIds: [Int64] = [],
         limit: Int
     ) throws -> [CardProgress] {
         guard !deckIds.isEmpty, limit > 0 else { return [] }
         return try db.reader.read { dbConn -> [CardProgress] in
-            let placeholders = deckIds.map { _ in "?" }.joined(separator: ",")
-            let cardIds = try Int64.fetchAll(
-                dbConn,
-                sql: "SELECT id FROM card WHERE deckId IN (\(placeholders)) AND deletedAt IS NULL",
-                arguments: StatementArguments(deckIds)
-            )
+            let cardIds = try self.fetchCardIds(dbConn: dbConn, deckIds: deckIds, tagIds: tagIds)
             guard !cardIds.isEmpty else { return [] }
             var query = CardProgress
                 .filter(cardIds.contains(Column("cardId")))
@@ -140,14 +129,39 @@ public struct CardProgressRepository: Sendable {
         }
     }
 
-    /// Number of unique non-deleted cards across the given decks.
-    public func fetchCardCount(deckIds: [Int64]) throws -> Int {
+    /// Number of unique non-deleted cards across the given decks, optionally filtered by tags.
+    public func fetchCardCount(deckIds: [Int64], tagIds: [Int64] = []) throws -> Int {
         guard !deckIds.isEmpty else { return 0 }
         return try db.reader.read { dbConn in
-            try Card
-                .filter(deckIds.contains(Column("deckId")))
-                .filter(Column("deletedAt") == nil)
-                .fetchCount(dbConn)
+            let cardIds = try self.fetchCardIds(dbConn: dbConn, deckIds: deckIds, tagIds: tagIds)
+            return cardIds.count
+        }
+    }
+
+    /// Internal helper: fetch card IDs filtered by decks and optionally tags.
+    private func fetchCardIds(dbConn: Database, deckIds: [Int64], tagIds: [Int64]) throws -> [Int64] {
+        let deckPlaceholders = deckIds.map { _ in "?" }.joined(separator: ",")
+        if tagIds.isEmpty {
+            return try Int64.fetchAll(
+                dbConn,
+                sql: "SELECT id FROM card WHERE deckId IN (\(deckPlaceholders)) AND deletedAt IS NULL",
+                arguments: StatementArguments(deckIds)
+            )
+        } else {
+            let tagPlaceholders = tagIds.map { _ in "?" }.joined(separator: ",")
+            var args = StatementArguments(deckIds)
+            _ = args.append(contentsOf: StatementArguments(tagIds))
+            return try Int64.fetchAll(
+                dbConn,
+                sql: """
+                    SELECT DISTINCT c.id FROM card c
+                    JOIN cardTag ct ON ct.cardId = c.id
+                    WHERE c.deckId IN (\(deckPlaceholders))
+                      AND c.deletedAt IS NULL
+                      AND ct.tagId IN (\(tagPlaceholders))
+                    """,
+                arguments: args
+            )
         }
     }
 

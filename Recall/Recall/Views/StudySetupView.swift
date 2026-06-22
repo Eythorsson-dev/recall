@@ -11,6 +11,8 @@ struct StudySetupView: View {
     @State private var direction: StudyDirection? = nil
     @State private var studyMode: StudyMode = .reading
     @State private var reviewLimit: Int? = nil
+    @State private var selectedTagIds: Set<Int64> = []
+    @State private var allTags: [Tag] = []
 
     private var settingsRepo: SettingsRepository { SettingsRepository(database: database) }
     @State private var dueCount = 0
@@ -21,6 +23,9 @@ struct StudySetupView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 deckSection
+                if !allTags.isEmpty {
+                    tagsSection
+                }
                 directionSection
                 studyModeSection
                 reviewLimitSection
@@ -39,10 +44,15 @@ struct StudySetupView: View {
                 direction: direction,
                 studyMode: studyMode,
                 reviewLimit: reviewLimit,
+                selectedTagIds: Array(selectedTagIds),
                 ttsPlayer: ttsPlayer
             )
         }
         .onChange(of: selectedDeckIds) { loadDueCount() }
+        .onChange(of: selectedTagIds) {
+            loadDueCount()
+            try? settingsRepo.setSelectedTagIds(Array(selectedTagIds))
+        }
         .onChange(of: direction) {
             loadDueCount()
             try? settingsRepo.setStudyDirection(direction)
@@ -58,6 +68,8 @@ struct StudySetupView: View {
             direction = (try? settingsRepo.studyDirection()) ?? nil
             studyMode = (try? settingsRepo.studyMode()) ?? .reading
             reviewLimit = try? settingsRepo.reviewLimit()
+            allTags = (try? TagRepository(database: database).fetchAll()) ?? []
+            selectedTagIds = Set((try? settingsRepo.selectedTagIds()) ?? [])
             loadDueCount()
         }
     }
@@ -70,6 +82,20 @@ struct StudySetupView: View {
             VStack(spacing: 1) {
                 ForEach(decks) { deck in
                     deckRow(deck)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private var tagsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionLabel("Tags")
+                .padding(.top, 30)
+            VStack(spacing: 1) {
+                ForEach(allTags) { tag in
+                    tagRow(tag)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -226,6 +252,47 @@ struct StudySetupView: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
+    private func tagRow(_ tag: Tag) -> some View {
+        let id = tag.id!
+        let isSelected = selectedTagIds.contains(id)
+
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                if isSelected { selectedTagIds.remove(id) }
+                else { selectedTagIds.insert(id) }
+            }
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? Color.accentColor : Color.clear)
+                        .frame(width: 22, height: 22)
+                    Circle()
+                        .strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.35), lineWidth: 1.5)
+                        .frame(width: 22, height: 22)
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+
+                Text(tag.name)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, 18)
+            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(.secondarySystemGroupedBackground))
+            .animation(.easeInOut(duration: 0.15), value: isSelected)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Helpers
 
     private var deckLookup: [Int64: Deck] {
@@ -237,8 +304,9 @@ struct StudySetupView: View {
     private func loadDueCount() {
         let progressRepo = CardProgressRepository(database: database)
         let ids = Array(selectedDeckIds)
-        dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction)) ?? 0
-        totalCount = (try? progressRepo.fetchCardCount(deckIds: ids)) ?? 0
+        let tagFilter = Array(selectedTagIds)
+        dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction, tagIds: tagFilter)) ?? 0
+        totalCount = (try? progressRepo.fetchCardCount(deckIds: ids, tagIds: tagFilter)) ?? 0
     }
 }
 

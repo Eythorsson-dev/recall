@@ -78,4 +78,30 @@ public struct SettingsRepository: Sendable {
         }
     }
 
+    // MARK: - Selected Tag IDs
+
+    public func selectedTagIds() throws -> [Int64] {
+        try db.reader.read { dbConn in
+            guard let raw = try String.fetchOne(dbConn, sql: "SELECT value FROM settings WHERE key = 'selectedTagIds'"),
+                  !raw.isEmpty else {
+                return []
+            }
+            return raw.split(separator: ",").compactMap { Int64($0) }
+        }
+    }
+
+    public func setSelectedTagIds(_ ids: [Int64]) throws {
+        try db.writer.write { dbConn in
+            if ids.isEmpty {
+                try dbConn.execute(sql: "DELETE FROM settings WHERE key = 'selectedTagIds'")
+            } else {
+                let value = ids.map(String.init).joined(separator: ",")
+                try dbConn.execute(
+                    sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('selectedTagIds', ?)",
+                    arguments: [value]
+                )
+            }
+        }
+    }
+
 }

@@ -46,6 +46,7 @@ struct DeckDetailView: View {
     @State private var deck: Deck
     @State private var cards: [Card] = []
     @State private var progressByCard: [Int64: CardProgress] = [:]
+    @State private var tagsByCard: [Int64: [Tag]] = [:]
     @State private var searchText = ""
     @State private var showingCreateCard = false
     @State private var showingGenerateSentences = false
@@ -80,7 +81,15 @@ struct DeckDetailView: View {
         func fold(_ s: String) -> String {
             s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
         }
-        return cards.filter { fold($0.sourceValue).contains(query) || fold($0.targetValue).contains(query) }
+        return cards.filter { card in
+            if fold(card.sourceValue).contains(query) || fold(card.targetValue).contains(query) {
+                return true
+            }
+            if let tags = card.id.flatMap({ tagsByCard[$0] }) {
+                return tags.contains { fold($0.name).contains(query) }
+            }
+            return false
+        }
     }
 
     var body: some View {
@@ -233,6 +242,7 @@ struct DeckDetailView: View {
     private func cardRow(_ card: Card, progress: CardProgress?) -> some View {
         let state = progress?.state ?? .new
         let isDue = progress?.isDue ?? false
+        let tags = card.id.flatMap { tagsByCard[$0] } ?? []
 
         return HStack(alignment: .center, spacing: 14) {
             Capsule()
@@ -246,6 +256,14 @@ struct DeckDetailView: View {
                 Text(card.sourceValue)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
+                if !tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(tags) { tag in
+                            TagChipView(tag: tag)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
             }
 
             Spacer()
@@ -330,15 +348,19 @@ struct DeckDetailView: View {
         guard let deckId = deck.id else { return }
         let cardRepo = CardRepository(database: database)
         let progressRepo = CardProgressRepository(database: database)
+        let tagRepo = TagRepository(database: database)
         cards = (try? cardRepo.fetchAll(deckId: deckId)) ?? []
-        var lookup: [Int64: CardProgress] = [:]
+        var progressLookup: [Int64: CardProgress] = [:]
+        var tagsLookup: [Int64: [Tag]] = [:]
         for card in cards {
             guard let cardId = card.id else { continue }
             if let p = try? progressRepo.fetch(cardId: cardId, direction: .sourceToTarget) {
-                lookup[cardId] = p
+                progressLookup[cardId] = p
             }
+            tagsLookup[cardId] = (try? tagRepo.fetchTags(forCard: cardId)) ?? []
         }
-        progressByCard = lookup
+        progressByCard = progressLookup
+        tagsByCard = tagsLookup
     }
 
     private func deleteCards(at offsets: IndexSet) {
