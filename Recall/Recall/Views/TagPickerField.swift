@@ -112,7 +112,7 @@ struct TagPickerField: View {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 14))
                                     .foregroundStyle(Color.accentColor)
-                                Text("Create "\(searchText.trimmingCharacters(in: .whitespacesAndNewlines))"")
+                                Text("Create \u{201C}\(searchText.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}")
                                     .font(.system(size: 15))
                                     .foregroundStyle(Color.accentColor)
                                 Spacer()
