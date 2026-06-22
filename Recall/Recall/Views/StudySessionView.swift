@@ -9,6 +9,7 @@ struct StudySessionView: View {
     let direction: StudyDirection?
     let studyMode: StudyMode
     let reviewLimit: Int?
+    let selectedTagIds: [Int64]
     let ttsPlayer: TTSPlayer
     @Environment(\.dismiss) private var dismiss
 
@@ -294,21 +295,21 @@ struct StudySessionView: View {
         let eventRepo = ReviewEventRepository(database: database)
         let cardRepo = CardRepository(database: database)
 
-        let due = try progressRepo.fetchDueForSession(deckIds: selectedDeckIds, direction: direction)
+        let due = try progressRepo.fetchDueForSession(deckIds: selectedDeckIds, direction: direction, tagIds: selectedTagIds)
         let dailyNewRemaining = max(0, Self.dailyNewCardLimit - (try eventRepo.fetchTodayNewCardCount(deckIds: selectedDeckIds)))
 
         var items: [CardProgress]
         let isContinue: Bool
 
         if !due.isEmpty {
-            let newCards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: dailyNewRemaining)
+            let newCards = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, tagIds: selectedTagIds, limit: dailyNewRemaining)
             items = interleave(due: due, new: newCards)
             isContinue = true
         } else if dailyNewRemaining > 0 {
-            items = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: dailyNewRemaining)
+            items = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, tagIds: selectedTagIds, limit: dailyNewRemaining)
             isContinue = true
         } else if bypassDailyCap {
-            items = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, limit: reviewLimit ?? Self.dailyNewCardLimit)
+            items = try progressRepo.fetchNewCards(deckIds: selectedDeckIds, direction: direction, tagIds: selectedTagIds, limit: reviewLimit ?? Self.dailyNewCardLimit)
             isContinue = false
         } else {
             items = []

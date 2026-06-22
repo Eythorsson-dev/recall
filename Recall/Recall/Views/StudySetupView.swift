@@ -7,10 +7,14 @@ struct StudySetupView: View {
     let ttsPlayer: TTSPlayer
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedDeckIds: Set<Int64> = []
     @State private var direction: StudyDirection? = nil
     @State private var studyMode: StudyMode = .reading
     @State private var reviewLimit: Int? = nil
+    @State private var selectedTagIds: Set<Int64> = []
+    @State private var allTags: [Tag] = []
+    @State private var showTagSheet = false
+
+    private var allDeckIds: [Int64] { decks.compactMap(\.id) }
 
     private var settingsRepo: SettingsRepository { SettingsRepository(database: database) }
     @State private var dueCount = 0
@@ -20,7 +24,9 @@ struct StudySetupView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                deckSection
+                if !allTags.isEmpty {
+                    tagsSection
+                }
                 directionSection
                 studyModeSection
                 reviewLimitSection
@@ -30,19 +36,23 @@ struct StudySetupView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Study Session")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $isStudying) {
             StudySessionView(
                 database: database,
                 deckLookup: deckLookup,
-                selectedDeckIds: Array(selectedDeckIds),
+                selectedDeckIds: allDeckIds,
                 direction: direction,
                 studyMode: studyMode,
                 reviewLimit: reviewLimit,
+                selectedTagIds: Array(selectedTagIds),
                 ttsPlayer: ttsPlayer
             )
         }
-        .onChange(of: selectedDeckIds) { loadDueCount() }
+        .onChange(of: selectedTagIds) {
+            loadDueCount()
+            try? settingsRepo.setSelectedTagIds(Array(selectedTagIds))
+        }
         .onChange(of: direction) {
             loadDueCount()
             try? settingsRepo.setStudyDirection(direction)
@@ -54,27 +64,38 @@ struct StudySetupView: View {
             try? settingsRepo.setReviewLimit(reviewLimit)
         }
         .onAppear {
-            selectedDeckIds = Set(decks.compactMap(\.id))
             direction = (try? settingsRepo.studyDirection()) ?? nil
             studyMode = (try? settingsRepo.studyMode()) ?? .reading
             reviewLimit = try? settingsRepo.reviewLimit()
+            allTags = (try? TagRepository(database: database).fetchAll()) ?? []
+            selectedTagIds = Set((try? settingsRepo.selectedTagIds()) ?? [])
             loadDueCount()
         }
     }
 
     // MARK: - Sections
 
-    private var deckSection: some View {
+    private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionLabel("Decks")
-            VStack(spacing: 1) {
-                ForEach(decks) { deck in
-                    deckRow(deck)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 20)
+            sectionLabel("Tags")
+                .padding(.top, 30)
+            PickerSummaryRow(icon: "tag.fill", summary: tagSummary) { showTagSheet = true }
+                .padding(.horizontal, 20)
         }
+        .sheet(isPresented: $showTagSheet) {
+            PickerSheet(
+                title: "Filter by Tag",
+                items: allTags.map { PickerSheet.Item(id: $0.id!, label: $0.name, subtitle: nil) },
+                selectedIds: $selectedTagIds
+            )
+        }
+    }
+
+    private var tagSummary: String {
+        if selectedTagIds.isEmpty { return "All tags" }
+        let names = allTags.filter { selectedTagIds.contains($0.id!) }.map(\.name)
+        if names.count <= 2 { return names.joined(separator: ", ") }
+        return "\(names.count) tags"
     }
 
     private var directionSection: some View {
@@ -176,15 +197,112 @@ struct StudySetupView: View {
             .padding(.bottom, 10)
     }
 
+    // MARK: - Helpers
+
+    private var deckLookup: [Int64: Deck] {
+        Dictionary(uniqueKeysWithValues: decks.compactMap { deck in
+            deck.id.map { ($0, deck) }
+        })
+    }
+
+    private func loadDueCount() {
+        let progressRepo = CardProgressRepository(database: database)
+        let ids = allDeckIds
+        let tagFilter = Array(selectedTagIds)
+        dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction, tagIds: tagFilter)) ?? 0
+        totalCount = (try? progressRepo.fetchCardCount(deckIds: ids, tagIds: tagFilter)) ?? 0
+    }
+}
+
+// MARK: - Picker Summary Row
+
+private struct PickerSummaryRow: View {
+    let icon: String
+    let summary: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.14))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                Text(summary)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.secondary.opacity(0.4))
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Picker Sheet
+
+private struct PickerSheet: View {
+    struct Item: Identifiable {
+        let id: Int64
+        let label: String
+        let subtitle: String?
+    }
+
+    let title: String
+    let items: [Item]
+    @Binding var selectedIds: Set<Int64>
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 1) {
+                    ForEach(items) { item in
+                        itemRow(item)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("All") { selectedIds = [] }
+                        .foregroundStyle(selectedIds.isEmpty ? Color.secondary : Color.accentColor)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
     @ViewBuilder
-    private func deckRow(_ deck: Deck) -> some View {
-        let id = deck.id!
-        let isSelected = selectedDeckIds.contains(id)
+    private func itemRow(_ item: Item) -> some View {
+        let isSelected = selectedIds.contains(item.id)
 
         Button {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-                if isSelected { selectedDeckIds.remove(id) }
-                else { selectedDeckIds.insert(id) }
+                if isSelected { selectedIds.remove(item.id) }
+                else { selectedIds.insert(item.id) }
             }
         } label: {
             HStack(spacing: 14) {
@@ -204,19 +322,17 @@ struct StudySetupView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(deck.name)
+                    Text(item.label)
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.primary)
-                    Text("\(deck.sourceField) → \(deck.targetField)")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                    if let subtitle = item.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.25))
             }
             .padding(.vertical, 16)
             .padding(.horizontal, 18)
@@ -224,21 +340,6 @@ struct StudySetupView: View {
             .animation(.easeInOut(duration: 0.15), value: isSelected)
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Helpers
-
-    private var deckLookup: [Int64: Deck] {
-        Dictionary(uniqueKeysWithValues: decks.compactMap { deck in
-            deck.id.map { ($0, deck) }
-        })
-    }
-
-    private func loadDueCount() {
-        let progressRepo = CardProgressRepository(database: database)
-        let ids = Array(selectedDeckIds)
-        dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction)) ?? 0
-        totalCount = (try? progressRepo.fetchCardCount(deckIds: ids)) ?? 0
     }
 }
 

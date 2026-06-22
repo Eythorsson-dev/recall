@@ -31,6 +31,7 @@ struct CardEditorView: View {
     @State private var isTranslating = false
     @State private var translationFailed = false
     @State private var translationDebounceTask: Task<Void, Never>?
+    @State private var selectedTagIds: [Int64] = []
 
     @FocusState private var focusedField: FieldKey?
 
@@ -59,18 +60,21 @@ struct CardEditorView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
+            ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         header
                         fields
+                        tagSection(scrollProxy: proxy)
+                        Color.clear.frame(height: 1).id("tagBottom")
                     }
-                    .padding(.bottom, 132)
+                    .padding(.bottom, 20)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .background(Color(.systemGroupedBackground))
-
-                actionBar
+                .safeAreaInset(edge: .bottom) {
+                    actionBar
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -84,7 +88,11 @@ struct CardEditorView: View {
                 }
             }
             .onAppear {
-                if case .create = mode {
+                if case .edit(let existing) = mode, let cardId = existing.id {
+                    let tagRepo = TagRepository(database: database)
+                    let tags = (try? tagRepo.fetchTags(forCard: cardId)) ?? []
+                    selectedTagIds = tags.compactMap(\.id)
+                } else {
                     // Slight delay lets the modal finish presenting before keyboard rises.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                         focusedField = .source
@@ -155,6 +163,27 @@ struct CardEditorView: View {
         .padding(.horizontal, 28)
         .padding(.top, 12)
         .padding(.bottom, 36)
+    }
+
+    // MARK: - Tag Section
+
+    private func tagSection(scrollProxy: ScrollViewProxy) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("TAGS")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.8)
+                .foregroundStyle(.secondary)
+
+            TagPickerField(database: database, selectedTagIds: $selectedTagIds) { focused in
+                if focused {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        withAnimation { scrollProxy.scrollTo("tagBottom", anchor: .bottom) }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
     }
 
     // MARK: - Fields
@@ -375,6 +404,7 @@ struct CardEditorView: View {
 
     private func saveCard() {
         let repo = CardRepository(database: database)
+        let tagRepo = TagRepository(database: database)
         switch mode {
         case .create:
             guard let deckId = deck.id else { return }
@@ -385,6 +415,9 @@ struct CardEditorView: View {
                 targetValueIsUserModified: targetValueIsUserModified
             )
             try? repo.insert(&card)
+            if let cardId = card.id {
+                try? tagRepo.setTags(selectedTagIds, forCard: cardId)
+            }
             enqueueTTS(forCardId: card.id, previous: nil)
         case .edit(let existing):
             var updated = existing
@@ -392,6 +425,9 @@ struct CardEditorView: View {
             updated.targetValue = targetValue
             updated.targetValueIsUserModified = targetValueIsUserModified
             try? repo.update(&updated)
+            if let cardId = existing.id {
+                try? tagRepo.setTags(selectedTagIds, forCard: cardId)
+            }
             enqueueTTS(forCardId: existing.id, previous: existing)
         }
         dismiss()

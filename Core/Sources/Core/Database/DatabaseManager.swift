@@ -308,6 +308,27 @@ public final class DatabaseManager: Sendable {
             }
         }
 
+        migrator.registerMigration("v11_tags") { db in
+            try db.create(table: "tag") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("name", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(table: "cardTag") { t in
+                t.column("cardId", .integer).notNull().references("card", onDelete: .cascade)
+                t.column("tagId", .integer).notNull().references("tag", onDelete: .cascade)
+            }
+
+            try db.create(
+                index: "cardTag_cardId_tagId",
+                on: "cardTag",
+                columns: ["cardId", "tagId"],
+                unique: true
+            )
+        }
+
         try migrator.migrate(writer)
     }
 }

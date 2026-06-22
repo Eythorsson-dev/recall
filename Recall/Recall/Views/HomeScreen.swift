@@ -8,6 +8,8 @@ struct HomeScreen: View {
     let ttsQueue: TTSGenerationQueue?
     let ttsPlayer: TTSPlayer
 
+    @State private var showingSettings = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -26,6 +28,18 @@ struct HomeScreen: View {
                 }
             }
             .navigationTitle("Recall")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gear")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView(database: database)
+            }
         }
     }
 }
