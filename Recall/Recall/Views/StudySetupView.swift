@@ -35,7 +35,7 @@ struct StudySetupView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("")
+        .navigationTitle("Study Session")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $isStudying) {
             StudySessionView(
