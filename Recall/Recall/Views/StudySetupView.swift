@@ -13,6 +13,7 @@ struct StudySetupView: View {
     @State private var reviewLimit: Int? = nil
     @State private var selectedTagIds: Set<Int64> = []
     @State private var allTags: [Tag] = []
+    @State private var showTagSheet = false
 
     private var settingsRepo: SettingsRepository { SettingsRepository(database: database) }
     @State private var dueCount = 0
@@ -93,14 +94,47 @@ struct StudySetupView: View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel("Tags")
                 .padding(.top, 30)
-            VStack(spacing: 1) {
-                ForEach(allTags) { tag in
-                    tagRow(tag)
+            Button {
+                showTagSheet = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.accentColor.opacity(0.14))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
+
+                    Text(tagSummary)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.primary)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.secondary.opacity(0.4))
                 }
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .buttonStyle(.plain)
             .padding(.horizontal, 20)
         }
+        .sheet(isPresented: $showTagSheet) {
+            TagPickerSheet(allTags: allTags, selectedTagIds: $selectedTagIds)
+        }
+    }
+
+    private var tagSummary: String {
+        if selectedTagIds.isEmpty { return "All tags" }
+        let names = allTags.filter { selectedTagIds.contains($0.id!) }.map(\.name)
+        if names.count <= 2 { return names.joined(separator: ", ") }
+        return "\(names.count) tags"
     }
 
     private var directionSection: some View {
@@ -307,6 +341,84 @@ struct StudySetupView: View {
         let tagFilter = Array(selectedTagIds)
         dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction, tagIds: tagFilter)) ?? 0
         totalCount = (try? progressRepo.fetchCardCount(deckIds: ids, tagIds: tagFilter)) ?? 0
+    }
+}
+
+// MARK: - Tag Picker Sheet
+
+private struct TagPickerSheet: View {
+    let allTags: [Tag]
+    @Binding var selectedTagIds: Set<Int64>
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 1) {
+                    ForEach(allTags) { tag in
+                        tagRow(tag)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Filter by Tag")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("All") { selectedTagIds = [] }
+                        .foregroundStyle(selectedTagIds.isEmpty ? Color.secondary : Color.accentColor)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func tagRow(_ tag: Tag) -> some View {
+        let id = tag.id!
+        let isSelected = selectedTagIds.contains(id)
+
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                if isSelected { selectedTagIds.remove(id) }
+                else { selectedTagIds.insert(id) }
+            }
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? Color.accentColor : Color.clear)
+                        .frame(width: 22, height: 22)
+                    Circle()
+                        .strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.35), lineWidth: 1.5)
+                        .frame(width: 22, height: 22)
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+
+                Text(tag.name)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, 18)
+            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(.secondarySystemGroupedBackground))
+            .animation(.easeInOut(duration: 0.15), value: isSelected)
+        }
+        .buttonStyle(.plain)
     }
 }
 
