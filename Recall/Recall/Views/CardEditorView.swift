@@ -60,19 +60,21 @@ struct CardEditorView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
+            ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         header
                         fields
-                        tagSection
+                        tagSection(scrollProxy: proxy)
+                        Color.clear.frame(height: 1).id("tagBottom")
                     }
-                    .padding(.bottom, 132)
+                    .padding(.bottom, 20)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .background(Color(.systemGroupedBackground))
-
-                actionBar
+                .safeAreaInset(edge: .bottom) {
+                    actionBar
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -165,14 +167,20 @@ struct CardEditorView: View {
 
     // MARK: - Tag Section
 
-    private var tagSection: some View {
+    private func tagSection(scrollProxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("TAGS")
                 .font(.system(size: 10, weight: .semibold))
                 .tracking(1.8)
                 .foregroundStyle(.secondary)
 
-            TagPickerField(database: database, selectedTagIds: $selectedTagIds)
+            TagPickerField(database: database, selectedTagIds: $selectedTagIds) { focused in
+                if focused {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        withAnimation { scrollProxy.scrollTo("tagBottom", anchor: .bottom) }
+                    }
+                }
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 20)

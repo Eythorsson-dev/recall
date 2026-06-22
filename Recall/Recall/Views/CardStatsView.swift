@@ -79,6 +79,7 @@ struct CardStatsView: View {
     @State private var currentCard: Card
     @State private var refreshing: Set<FieldSide> = []
     @State private var fetchError: [FieldSide: String] = [:]
+    @State private var cardTags: [Tag] = []
 
     init(
         database: DatabaseManager,
@@ -196,6 +197,15 @@ struct CardStatsView: View {
                     audioKey: currentCard.targetAudioKey
                 )
                 .padding(.top, 10)
+            }
+
+            if !cardTags.isEmpty {
+                FlowLayout(spacing: 6) {
+                    ForEach(cardTags) { tag in
+                        TagChipView(tag: tag)
+                    }
+                }
+                .padding(.top, 20)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -603,6 +613,7 @@ struct CardStatsView: View {
         reloadCard()
         let progressRepo = CardProgressRepository(database: database)
         let eventRepo = ReviewEventRepository(database: database)
+        let tagRepo = TagRepository(database: database)
 
         if let all = try? progressRepo.fetchAll(forCard: cardId) {
             var lookup: [StudyDirection: CardProgress] = [:]
@@ -613,5 +624,6 @@ struct CardStatsView: View {
         }
 
         events = (try? eventRepo.fetchAll(forCard: cardId)) ?? []
+        cardTags = (try? tagRepo.fetchTags(forCard: cardId)) ?? []
     }
 }

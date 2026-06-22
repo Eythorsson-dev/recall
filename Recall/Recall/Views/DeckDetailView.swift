@@ -244,10 +244,11 @@ struct DeckDetailView: View {
         let isDue = progress?.isDue ?? false
         let tags = card.id.flatMap { tagsByCard[$0] } ?? []
 
-        return HStack(alignment: .center, spacing: 14) {
+        return HStack(alignment: .top, spacing: 14) {
             Capsule()
                 .fill(state.color)
-                .frame(width: 3, height: 36)
+                .frame(width: 3)
+                .frame(maxHeight: .infinity)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(card.targetValue)

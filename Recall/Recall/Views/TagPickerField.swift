@@ -4,6 +4,7 @@ import Core
 struct TagPickerField: View {
     let database: DatabaseManager
     @Binding var selectedTagIds: [Int64]
+    var onFocusChange: ((Bool) -> Void)? = nil
 
     @State private var allTags: [Tag] = []
     @State private var searchText: String = ""
@@ -38,15 +39,8 @@ struct TagPickerField: View {
                 if !selectedTags.isEmpty {
                     FlowLayout(spacing: 6) {
                         ForEach(selectedTags) { tag in
-                            HStack(spacing: 4) {
-                                TagChipView(tag: tag)
-                                Button {
-                                    selectedTagIds.removeAll { $0 == tag.id }
-                                } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(Color.accentColor)
-                                }
+                            TagChipView(tag: tag) {
+                                selectedTagIds.removeAll { $0 == tag.id }
                             }
                         }
                     }
@@ -61,6 +55,7 @@ struct TagPickerField: View {
                         withAnimation(.easeInOut(duration: 0.15)) {
                             isExpanded = focused
                         }
+                        onFocusChange?(focused)
                     }
                     .onChange(of: searchText) { _, _ in
                         isExpanded = isFocused
@@ -96,6 +91,7 @@ struct TagPickerField: View {
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 11)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
 
@@ -119,6 +115,7 @@ struct TagPickerField: View {
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 11)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -169,7 +166,7 @@ struct TagPickerField: View {
 
 // MARK: - FlowLayout helper
 
-private struct FlowLayout: Layout {
+struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
