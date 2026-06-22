@@ -14,6 +14,7 @@ struct StudySetupView: View {
     @State private var selectedTagIds: Set<Int64> = []
     @State private var allTags: [Tag] = []
     @State private var showTagSheet = false
+    @State private var showDeckSheet = false
 
     private var settingsRepo: SettingsRepository { SettingsRepository(database: database) }
     @State private var dueCount = 0
@@ -80,53 +81,38 @@ struct StudySetupView: View {
     private var deckSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel("Decks")
-            VStack(spacing: 1) {
-                ForEach(decks) { deck in
-                    deckRow(deck)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 20)
+            PickerSummaryRow(icon: "rectangle.stack.fill", summary: deckSummary) { showDeckSheet = true }
+                .padding(.horizontal, 20)
         }
+        .sheet(isPresented: $showDeckSheet) {
+            PickerSheet(
+                title: "Filter by Deck",
+                items: decks.map { PickerSheet.Item(id: $0.id!, label: $0.name, subtitle: "\($0.sourceField) → \($0.targetField)") },
+                selectedIds: $selectedDeckIds
+            )
+        }
+    }
+
+    private var deckSummary: String {
+        if selectedDeckIds.count == decks.count { return "All decks" }
+        let names = decks.filter { selectedDeckIds.contains($0.id!) }.map(\.name)
+        if names.count <= 2 { return names.joined(separator: ", ") }
+        return "\(names.count) decks"
     }
 
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel("Tags")
                 .padding(.top, 30)
-            Button {
-                showTagSheet = true
-            } label: {
-                HStack(spacing: 14) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.14))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: "tag.fill")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color.accentColor)
-                    }
-
-                    Text(tagSummary)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.primary)
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.secondary.opacity(0.4))
-                }
-                .padding(.vertical, 14)
-                .padding(.horizontal, 16)
-                .background(Color(.secondarySystemGroupedBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 20)
+            PickerSummaryRow(icon: "tag.fill", summary: tagSummary) { showTagSheet = true }
+                .padding(.horizontal, 20)
         }
         .sheet(isPresented: $showTagSheet) {
-            TagPickerSheet(allTags: allTags, selectedTagIds: $selectedTagIds)
+            PickerSheet(
+                title: "Filter by Tag",
+                items: allTags.map { PickerSheet.Item(id: $0.id!, label: $0.name, subtitle: nil) },
+                selectedIds: $selectedTagIds
+            )
         }
     }
 
@@ -236,15 +222,112 @@ struct StudySetupView: View {
             .padding(.bottom, 10)
     }
 
+    // MARK: - Helpers
+
+    private var deckLookup: [Int64: Deck] {
+        Dictionary(uniqueKeysWithValues: decks.compactMap { deck in
+            deck.id.map { ($0, deck) }
+        })
+    }
+
+    private func loadDueCount() {
+        let progressRepo = CardProgressRepository(database: database)
+        let ids = Array(selectedDeckIds)
+        let tagFilter = Array(selectedTagIds)
+        dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction, tagIds: tagFilter)) ?? 0
+        totalCount = (try? progressRepo.fetchCardCount(deckIds: ids, tagIds: tagFilter)) ?? 0
+    }
+}
+
+// MARK: - Picker Summary Row
+
+private struct PickerSummaryRow: View {
+    let icon: String
+    let summary: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.14))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                Text(summary)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.secondary.opacity(0.4))
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Picker Sheet
+
+private struct PickerSheet: View {
+    struct Item: Identifiable {
+        let id: Int64
+        let label: String
+        let subtitle: String?
+    }
+
+    let title: String
+    let items: [Item]
+    @Binding var selectedIds: Set<Int64>
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 1) {
+                    ForEach(items) { item in
+                        itemRow(item)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("All") { selectedIds = [] }
+                        .foregroundStyle(selectedIds.isEmpty ? Color.secondary : Color.accentColor)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
     @ViewBuilder
-    private func deckRow(_ deck: Deck) -> some View {
-        let id = deck.id!
-        let isSelected = selectedDeckIds.contains(id)
+    private func itemRow(_ item: Item) -> some View {
+        let isSelected = selectedIds.contains(item.id)
 
         Button {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-                if isSelected { selectedDeckIds.remove(id) }
-                else { selectedDeckIds.insert(id) }
+                if isSelected { selectedIds.remove(item.id) }
+                else { selectedIds.insert(item.id) }
             }
         } label: {
             HStack(spacing: 14) {
@@ -264,152 +347,15 @@ struct StudySetupView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(deck.name)
+                    Text(item.label)
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.primary)
-                    Text("\(deck.sourceField) → \(deck.targetField)")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.25))
-            }
-            .padding(.vertical, 16)
-            .padding(.horizontal, 18)
-            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(.secondarySystemGroupedBackground))
-            .animation(.easeInOut(duration: 0.15), value: isSelected)
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private func tagRow(_ tag: Tag) -> some View {
-        let id = tag.id!
-        let isSelected = selectedTagIds.contains(id)
-
-        Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-                if isSelected { selectedTagIds.remove(id) }
-                else { selectedTagIds.insert(id) }
-            }
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(isSelected ? Color.accentColor : Color.clear)
-                        .frame(width: 22, height: 22)
-                    Circle()
-                        .strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.35), lineWidth: 1.5)
-                        .frame(width: 22, height: 22)
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
-                            .transition(.scale.combined(with: .opacity))
+                    if let subtitle = item.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
                     }
                 }
-
-                Text(tag.name)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.primary)
-
-                Spacer()
-            }
-            .padding(.vertical, 16)
-            .padding(.horizontal, 18)
-            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(.secondarySystemGroupedBackground))
-            .animation(.easeInOut(duration: 0.15), value: isSelected)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Helpers
-
-    private var deckLookup: [Int64: Deck] {
-        Dictionary(uniqueKeysWithValues: decks.compactMap { deck in
-            deck.id.map { ($0, deck) }
-        })
-    }
-
-    private func loadDueCount() {
-        let progressRepo = CardProgressRepository(database: database)
-        let ids = Array(selectedDeckIds)
-        let tagFilter = Array(selectedTagIds)
-        dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction, tagIds: tagFilter)) ?? 0
-        totalCount = (try? progressRepo.fetchCardCount(deckIds: ids, tagIds: tagFilter)) ?? 0
-    }
-}
-
-// MARK: - Tag Picker Sheet
-
-private struct TagPickerSheet: View {
-    let allTags: [Tag]
-    @Binding var selectedTagIds: Set<Int64>
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 1) {
-                    ForEach(allTags) { tag in
-                        tagRow(tag)
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Filter by Tag")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("All") { selectedTagIds = [] }
-                        .foregroundStyle(selectedTagIds.isEmpty ? Color.secondary : Color.accentColor)
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-    }
-
-    @ViewBuilder
-    private func tagRow(_ tag: Tag) -> some View {
-        let id = tag.id!
-        let isSelected = selectedTagIds.contains(id)
-
-        Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-                if isSelected { selectedTagIds.remove(id) }
-                else { selectedTagIds.insert(id) }
-            }
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(isSelected ? Color.accentColor : Color.clear)
-                        .frame(width: 22, height: 22)
-                    Circle()
-                        .strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.35), lineWidth: 1.5)
-                        .frame(width: 22, height: 22)
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
-
-                Text(tag.name)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.primary)
 
                 Spacer()
             }
