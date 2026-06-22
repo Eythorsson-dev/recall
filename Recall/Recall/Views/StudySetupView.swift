@@ -7,14 +7,14 @@ struct StudySetupView: View {
     let ttsPlayer: TTSPlayer
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedDeckIds: Set<Int64> = []
     @State private var direction: StudyDirection? = nil
     @State private var studyMode: StudyMode = .reading
     @State private var reviewLimit: Int? = nil
     @State private var selectedTagIds: Set<Int64> = []
     @State private var allTags: [Tag] = []
     @State private var showTagSheet = false
-    @State private var showDeckSheet = false
+
+    private var allDeckIds: [Int64] { decks.compactMap(\.id) }
 
     private var settingsRepo: SettingsRepository { SettingsRepository(database: database) }
     @State private var dueCount = 0
@@ -24,7 +24,6 @@ struct StudySetupView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                deckSection
                 if !allTags.isEmpty {
                     tagsSection
                 }
@@ -42,7 +41,7 @@ struct StudySetupView: View {
             StudySessionView(
                 database: database,
                 deckLookup: deckLookup,
-                selectedDeckIds: Array(selectedDeckIds),
+                selectedDeckIds: allDeckIds,
                 direction: direction,
                 studyMode: studyMode,
                 reviewLimit: reviewLimit,
@@ -50,7 +49,6 @@ struct StudySetupView: View {
                 ttsPlayer: ttsPlayer
             )
         }
-        .onChange(of: selectedDeckIds) { loadDueCount() }
         .onChange(of: selectedTagIds) {
             loadDueCount()
             try? settingsRepo.setSelectedTagIds(Array(selectedTagIds))
@@ -66,7 +64,6 @@ struct StudySetupView: View {
             try? settingsRepo.setReviewLimit(reviewLimit)
         }
         .onAppear {
-            selectedDeckIds = Set(decks.compactMap(\.id))
             direction = (try? settingsRepo.studyDirection()) ?? nil
             studyMode = (try? settingsRepo.studyMode()) ?? .reading
             reviewLimit = try? settingsRepo.reviewLimit()
@@ -77,28 +74,6 @@ struct StudySetupView: View {
     }
 
     // MARK: - Sections
-
-    private var deckSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionLabel("Decks")
-            PickerSummaryRow(icon: "rectangle.stack.fill", summary: deckSummary) { showDeckSheet = true }
-                .padding(.horizontal, 20)
-        }
-        .sheet(isPresented: $showDeckSheet) {
-            PickerSheet(
-                title: "Filter by Deck",
-                items: decks.map { PickerSheet.Item(id: $0.id!, label: $0.name, subtitle: "\($0.sourceField) → \($0.targetField)") },
-                selectedIds: $selectedDeckIds
-            )
-        }
-    }
-
-    private var deckSummary: String {
-        if selectedDeckIds.count == decks.count { return "All decks" }
-        let names = decks.filter { selectedDeckIds.contains($0.id!) }.map(\.name)
-        if names.count <= 2 { return names.joined(separator: ", ") }
-        return "\(names.count) decks"
-    }
 
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -232,7 +207,7 @@ struct StudySetupView: View {
 
     private func loadDueCount() {
         let progressRepo = CardProgressRepository(database: database)
-        let ids = Array(selectedDeckIds)
+        let ids = allDeckIds
         let tagFilter = Array(selectedTagIds)
         dueCount   = (try? progressRepo.fetchDueCount(deckIds: ids, direction: direction, tagIds: tagFilter)) ?? 0
         totalCount = (try? progressRepo.fetchCardCount(deckIds: ids, tagIds: tagFilter)) ?? 0
