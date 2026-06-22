@@ -86,10 +86,16 @@ struct SettingsView: View {
     }
 
     private func deleteTags(at offsets: IndexSet) {
+        let settingsRepo = SettingsRepository(database: database)
+        var savedIds = (try? settingsRepo.selectedTagIds()) ?? []
         for index in offsets {
             let tag = tags[index]
             try? tagRepo.delete(tag)
+            if let tagId = tag.id {
+                savedIds.removeAll { $0 == tagId }
+            }
         }
+        try? settingsRepo.setSelectedTagIds(savedIds)
         loadTags()
     }
 
